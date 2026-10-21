@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/reports/tax-summary/+page.svelte";

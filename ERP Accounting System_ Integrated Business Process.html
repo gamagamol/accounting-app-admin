@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ERP Accounting System: Integrated Business Process</title>
+<style>
+:root{--bg:#FAF9F6;--card:#fff;--tx:#1F2933;--mu:#5B6670;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme="dark"]{--bg:#14171C;--card:#1D2128;--tx:#E6E9ED;--mu:#9AA4AF}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Segoe UI",system-ui,sans-serif}
+header{padding:20px 24px 8px}h1{margin:0;font-size:22px;font-weight:600}p{margin:4px 0 0;color:var(--mu);font-size:14px}
+.w{overflow-x:auto;padding:8px 16px 24px}svg{display:block;width:100%;min-width:1280px;height:auto}
+.m{--c:#475569;--f:#E8EDF3;--t:#1E293B}.s{--c:#0F766E;--f:#D5F0EB;--t:#0B4F4A}.p{--c:#C2410C;--f:#FCE3D0;--t:#7C2D12}
+.i{--c:#6D28D9;--f:#E6DEFA;--t:#4C1D95}.a{--c:#1D4ED8;--f:#D9E6FC;--t:#1E3A8A}.r{--c:#15803D;--f:#D8F0DD;--t:#14532D}
+:root[data-theme="dark"] .m{--c:#94A3B8;--f:#2A3340;--t:#E2E8F0}:root[data-theme="dark"] .s{--c:#5EEAD4;--f:#12403B;--t:#CCFBF1}
+:root[data-theme="dark"] .p{--c:#FB923C;--f:#4A2410;--t:#FFEDD5}:root[data-theme="dark"] .i{--c:#A78BFA;--f:#32265A;--t:#EDE9FE}
+:root[data-theme="dark"] .a{--c:#60A5FA;--f:#1B3260;--t:#DBEAFE}:root[data-theme="dark"] .r{--c:#4ADE80;--f:#164126;--t:#DCFCE7}
+.b{--c:#A16207;--f:#FBEFC3;--t:#713F12}:root[data-theme="dark"] .b{--c:#FACC15;--f:#463708;--t:#FEF9C3}.h{--c:#BE185D;--f:#FBDDE9;--t:#831843}.k{--c:#1F2937;--f:#E5E7EB;--t:#111827}:root[data-theme="dark"] .h{--c:#F472B6;--f:#4A1830;--t:#FCE7F3}:root[data-theme="dark"] .k{--c:#E5E7EB;--f:#2A2F37;--t:#F9FAFB}.pn{fill:var(--f);fill-opacity:.45;stroke:var(--c);stroke-width:1.8}.nd{fill:var(--card);stroke:var(--c);stroke-width:1.4}
+.tg{fill:var(--f);stroke:var(--c);stroke-width:1;stroke-dasharray:3 2}.rt{fill:var(--card);stroke:var(--c);stroke-width:1.4;stroke-dasharray:5 3}
+.dg{fill:var(--f);stroke:var(--c);stroke-width:1.5}.e{fill:none;stroke:var(--c);stroke-width:1.5}.ds{stroke-dasharray:5 4;stroke-width:1.2}
+.ic{fill:none;stroke:var(--c);stroke-width:1.3}.t{fill:var(--t)}.lg{fill:var(--tx);font-size:12px}
+</style></head><body>
+<header><h1>ERP Accounting + HRMIS MySyarikat: Integrated Business Process</h1>
+<p>Warna menandai modul. Panel 9 (merah muda) adalah proses bisnis HRMIS MySyarikat. Panah hitam bernomor 1 sampai 7 adalah titik integrasi ke ERP. Geser ke samping bila layar sempit.</p></header>
+<div class="w"><svg id="d" viewBox="0 0 1536 1640" role="img" aria-label="Diagram proses bisnis terpadu ERP: master data, sales, purchasing, inventory, akuntansi, dan laporan"></svg></div>
+<script>
+const R=document.documentElement;if(!R.dataset.theme)R.dataset.theme=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+const o=[`<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="context-stroke"/></marker></defs>`];
+const tx=(s,x,y,z,an='middle',w=500)=>{const a=s.split('|');return `<text class="t" x="${x}" y="${y-(a.length-1)*z*.6}" font-size="${z}" font-weight="${w}" text-anchor="${an}" dominant-baseline="central">${a.map((l,i)=>`<tspan x="${x}" dy="${i?z*1.2:0}">${l}</tspan>`).join('')}</text>`};
+const pn=(c,x,y,w,h,t,ty=20)=>o.push(`<g class="${c}"><rect class="pn" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/>${tx(t,x+12,y+ty,16,'start',700)}</g>`);
+const nd=(c,k,x,y,w,h,l,z=12.5)=>{const cy=y+h/2;let s=`<g class="${c}">`;
+if(k=='c')s+=`<circle class="nd" cx="${x}" cy="${y}" r="${w}" style="stroke-width:${h}"/>`;
+else if(k=='g'){s+=`<polygon class="dg" points="${x},${cy} ${x+w/2},${y} ${x+w},${cy} ${x+w/2},${y+h}"/>`+tx(l,x+w/2,cy,11.5)}
+else{s+=`<rect class="${k=='t'?'tg':k=='x'?'rt':'nd'}" x="${x}" y="${y}" width="${w}" height="${h}" rx="${k=='t'?5:7}"/>`;
+if(k=='b')s+=`<ellipse class="ic" cx="${x+15}" cy="${cy-6}" rx="7" ry="3"/><path class="ic" d="M${x+8} ${cy-6}v12a7 3 0 0 0 14 0v-12"/>`;
+else s+=`<path class="ic" d="M${x+9} ${cy-7}h7l4 4v10h-11z"/>`;
+s+=tx(l,x+24+(w-28)/2,cy,k=='t'?11:z)}
+o.push(s+'</g>')};
+const ed=(c,d,ds,ar=1,l,lx,ly)=>o.push(`<g class="${c}"><path class="e${ds?' ds':''}" d="${d}"${ar?' marker-end="url(#a)"':''}/>${l?tx(l,lx,ly,11):''}</g>`);
+// panels
+pn('m',8,52,224,518,'1. Master Data');pn('s',297,56,1003,190,'2. Sales Flow');pn('p',297,262,985,205,'3. Purchasing Flow');
+pn('i',297,479,985,190,'4. Inventory');pn('a',297,682,985,300,'5. Accounting & Financial Reports');pn('r',1312,56,216,628,'6. Operational &|Management Reports',34);
+// master
+['Chart of Accounts|(COA)','Customer','Supplier','Employee','Product','Unit of Measurement|(UoM)','Warehouse / Location','Tax Rates','Terms of Payment','Bank & Cash Accounts'].forEach((l,i)=>nd('m','b',18,88+i*47,204,40,l,13));
+o.push(`<text class="lg" x="238" y="78" font-size="10">(dependency)</text>`);
+ed('m','M232 90H297',1);ed('m','M232 112H282V300H297',1);ed('m','M232 134H268V500H297',1);ed('m','M232 156H254V768H297',1);
+// sales
+nd('s','c',324,172,13,2);nd('s','d',366,150,98,44,'Quotation');nd('s','g',493,134,96,76,'Quotation|Approved?');nd('s','d',632,150,98,44,'Sales Order');
+nd('s','d',759,150,104,44,'Delivery');nd('s','d',893,150,112,44,'Sales Invoice');nd('s','d',1030,150,92,44,'Customer|Receipt');
+nd('s','x',1145,128,110,38,'Sales Return /|Credit Note',11.5);nd('s','d',1145,198,106,40,'Customer Balance /|Accounting',11.5);nd('s','c',1274,218,12,3);
+nd('s','t',390,91,120,28,'Terms of Payment');nd('s','t',956,82,84,28,'Tax Rates');
+ed('s','M337 172H366');ed('s','M464 172H493');ed('s','M589 172H632',1,1,'Yes',608,162);ed('s','M541 210V228H416V194',1,1,'No',556,222);
+ed('s','M730 172H759');ed('s','M863 172H893');ed('s','M1005 172H1030');ed('s','M1076 194V218H1145');ed('s','M1200 166V198');ed('s','M1251 218H1261');
+ed('s','M1122 164H1133V147H1145',1);ed('s','M450 119V150',1);ed('s','M510 105H918V150',1);ed('s','M998 110V150',1);
+// purchasing
+nd('p','c',324,367,13,2);nd('p','d',366,345,148,44,'Purchase Order');nd('p','d',581,345,124,44,'Goods Receipt');nd('p','d',781,345,138,44,'Purchase Invoice');
+nd('p','d',961,345,104,44,'Vendor|Payment');nd('p','c',1141,367,15,3);nd('p','x',654,404,138,42,'Purchase Return /|Debit Note',11.5);
+nd('p','t',374,299,112,28,'Terms of Payment');nd('p','t',517,275,84,28,'Supplier');nd('p','t',711,275,82,28,'Product');
+ed('p','M337 367H366');ed('p','M514 367H581');ed('p','M705 367H781');ed('p','M919 367H961');ed('p','M1065 367H1126');
+ed('p','M605 389V425H654',1,1,'No',618,414);ed('p','M792 425H850V389',1,1,'Yes',822,415);
+ed('p','M430 327V345',1);ed('p','M559 303V345',1);ed('p','M752 303V345',1);
+// inventory
+nd('i','c',325,581,14,2);nd('i','d',389,535,128,42,'Delivery|(from Sales)',12);nd('i','d',389,591,128,42,'Goods Receipt|(from Purchase)',12);
+nd('i','d',588,557,142,44,'Stock Movement');nd('i','d',768,557,140,44,'Stock Adjustment');nd('i','d',945,549,140,46,'Product Account|Mapping');nd('i','d',743,621,160,40,'Accounting Journals');
+nd('i','t',451,487,84,28,'Product');nd('i','t',596,487,136,28,'Warehouse / Location');nd('i','t',757,487,80,28,'UoM');
+ed('i','M339 581H372V556H389',0,0);ed('i','M372 581V612H389',0,0);ed('i','M517 556H548V579H588');ed('i','M517 612H548V579',0,0);
+ed('i','M730 579H768');ed('i','M908 579H945');ed('i','M1015 595V641H903');ed('i','M659 601V641H743');
+ed('i','M493 515V528H632V557',1);ed('i','M664 515V557',1);ed('i','M815 515V557',1);
+ed('i','M903 641H1075V753',1);
+// accounting row 1
+[[312,98,'Sales Invoice'],[424,128,'Customer Receipt'],[566,124,'Purchase Invoice'],[704,116,'Vendor Payment'],[836,102,'Expenses'],[952,136,'Inventory Valuation|/ Adjustment'],[1102,120,'Manual Journal|Entry']].forEach(([x,w,l])=>{
+nd('a','d',x,753,w,38,l,12);ed('a',`M${x+w/2} 791V806`,0,0)});
+ed('a','M361 806H1162',0,0);ed('a','M715 806V840');
+nd('a','t',318,714,92,24,'Tax Rates');nd('a','t',582,714,92,24,'Tax Rates');nd('a','t',847,708,82,28,'Employee');
+ed('a','M364 738V753',1);ed('a','M628 738V753',1);ed('a','M888 736V753',1);
+// accounting row 2
+nd('a','b',316,840,128,40,'Bank & Cash Accounts',11.5);nd('a','d',470,840,138,40,'Bank Reconciliation');nd('a','d',650,840,130,40,'General Ledger');
+nd('a','d',804,840,114,40,'Period Closing');nd('a','d',950,840,120,40,'Trial Balance');
+nd('a','d',1122,826,142,30,'Profit & Loss');nd('a','d',1122,867,142,30,'Balance Sheet');nd('a','d',1122,908,142,30,'Cash Flow Statement');nd('a','b',682,934,132,34,'Chart of Accounts (COA)',11);
+ed('a','M444 860H470');ed('a','M608 860H650');ed('a','M780 860H804');ed('a','M918 860H950');
+ed('a','M1070 860H1096V841H1122');ed('a','M1096 882H1122');ed('a','M1096 923H1122',1);ed('a','M1096 841V923',0,0);
+ed('a','M730 934V880',1);
+// expense & budgeting
+pn('b',297,996,985,222,'7. Expense & Budgeting');
+nd('b','c',324,1084,13,2);nd('b','d',366,1062,104,44,'Annual|Budget Plan');nd('b','d',492,1062,108,44,'Budget|Approval');nd('b','d',622,1062,128,44,'Budget Allocation|(COA & dept)',12);
+nd('b','d',774,1062,100,44,'Expense|Entry');nd('b','g',898,1046,92,76,'Within|budget?');nd('b','d',1012,1062,104,44,'Expense|Approval');nd('b','d',1138,1062,124,44,'Expenses|(posted to GL)',12);
+nd('b','x',868,1150,152,40,'Budget Revision /|Over-budget Request',11.5);nd('r','d',1138,1150,124,40,'Budget vs|Actual');
+nd('b','t',646,1012,80,26,'COA');nd('b','t',782,1012,84,26,'Employee');
+ed('b','M337 1084H366');ed('b','M470 1084H492');ed('b','M600 1084H622');ed('b','M750 1084H774');ed('b','M874 1084H898');ed('b','M990 1084H1012',1,1,'Yes',1001,1073);ed('b','M1116 1084H1138');
+ed('b','M944 1122V1150',1,1,'No',957,1136);ed('b','M868 1170H686V1106',1);ed('b','M1200 1106V1150');ed('b','M686 1038V1062',1);ed('b','M824 1038V1062',1);
+ed('a','M1262 1084H1274V806H1166',1,0);ed('m','M232 178H240V1090H297',1);
+// hrmis integration
+pn('k',297,1236,985,110,'8. ERP Posting for HR');pn('h',297,1366,985,240,'9. MySyarikat HRMIS (HR & Payroll)',222);
+const X=i=>311+i*138,C=i=>X(i)+58;
+const bx=(c,x,y,w,h,l,z=12)=>o.push(`<g class="${c}"><rect class="nd" x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/>${tx(l,x+w/2,y+h/2,z)}</g>`);
+const Rr=[['m','Employee &|Cost Center'],['a','Payroll Journal|(Manual Journal)'],['p','Statutory Payables|(Purchase Invoice)'],['a','Bank & Cash|Salary Transfer'],['b','Expenses &|Budget Check'],['a','Employee|Receivable'],['r','Budget vs Actual|(panel 7)']];
+const H2=['Employee|Registration','Payroll|Approval','Statutory|Contributions','Salary Payment|(bank file)','Claim|Approval','Advance|Approval','Payroll Cost|Close'];
+const H3=['Attendance|& Leave','Payroll|Calculation','Overtime &|Allowance','Payslip|Distribution','Claim|Submission','Advance|Request','Headcount &|Cost Report'];
+Rr.forEach((r,i)=>{bx(r[0],X(i),1276,116,50,r[1],11.5);bx('h',X(i),1420,116,46,H2[i]);bx('h',X(i),1510,116,46,H3[i])});
+ed('h',`M${C(0)} 1466V1510`);ed('h',`M${X(0)+116} 1533H${X(1)}`);ed('h',`M${C(1)} 1510V1466`);ed('h',`M${X(2)} 1533H${X(1)+116}`);
+ed('h',`M${X(1)+116} 1443H${X(2)}`);ed('h',`M${X(2)+116} 1443H${X(3)}`);ed('h',`M${C(3)} 1466V1510`);ed('h',`M${C(4)} 1510V1466`);ed('h',`M${C(5)} 1510V1466`);ed('h',`M${C(6)} 1510V1466`);
+[1,2,3,4,5].forEach(i=>ed('a',`M${C(i)} 1276V1264`,1,0));ed('a',`M${C(1)} 1264H1292V806H1166`,1,0);ed('r',`M${C(6)} 1276V1192`,0,1);
+Rr.forEach((r,i)=>o.push(`<g class="k"><path class="e" style="stroke-width:2.4" d="M${C(i)} 1420V1328" marker-end="url(#a)"${i==4?' marker-start="url(#a)"':''}/></g>`));
+Rr.forEach((r,i)=>o.push(`<g class="k"><circle cx="${C(i)}" cy="1356" r="10" style="fill:var(--c)"/><text x="${C(i)}" y="1356" font-size="12" font-weight="600" text-anchor="middle" dominant-baseline="central" style="fill:var(--card)">${i+1}</text></g>`));
+// reports
+['Aging Schedule','Quotation vs PO','Quotation Detail','Customer Omzet','Outstanding Report','Omzet Report','Transaction Tracking','Stock Card','Order Fulfillment (SO vs DO)','Purchase by Vendor Report','Gross Profit by Product','Tax Summary'].forEach((l,i)=>nd('r','d',1326,126+i*46,192,34,l,12.5));
+ed('r','M1282 820H1306V210H1312',1);ed('r','M1306 512H1312',1);
+// legend
+o.push(`<g class="m"><path class="e" d="M18 610H58" marker-end="url(#a)"/><text class="lg" x="68" y="610" dominant-baseline="central">Alur proses</text>
+<path class="e ds" d="M18 636H58" marker-end="url(#a)"/><text class="lg" x="68" y="636" dominant-baseline="central">Ketergantungan data</text>
+<rect class="rt" x="18" y="656" width="40" height="22" rx="5"/><text class="lg" x="68" y="667" dominant-baseline="central">Dokumen retur</text></g>`);
+o.push(`<g class="k"><path class="e" style="stroke-width:2.4" d="M18 706H58" marker-end="url(#a)"/><text class="lg" x="68" y="706" dominant-baseline="central">Integrasi HRMIS ke ERP</text></g>`);
+document.getElementById('d').innerHTML=o.join('');
+</script></body></html>

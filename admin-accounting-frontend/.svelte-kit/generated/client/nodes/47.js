@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/reports/purchase-by-vendor/+page.svelte";

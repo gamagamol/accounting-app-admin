@@ -1,0 +1,1 @@
+import{s,u as n}from"../chunks/CgpfTqao.js";import{S as e,i as a}from"../chunks/jFEFj_Kq.js";import{g as r}from"../chunks/BcQ8AjQ1.js";function i(o){return n(()=>{r("/dashboard")}),[]}class c extends e{constructor(t){super(),a(this,t,i,null,s,{})}}export{c as component};

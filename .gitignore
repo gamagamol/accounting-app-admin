@@ -1,4 +1,63 @@
-./fe/node_modules/
-./fe/dist/
-./fe/build/
-./fe/build/
+# Dependencies
+node_modules
+.pnpm-store
+
+# Frontend build output
+.svelte-kit
+dist
+build
+.output
+.vite
+*.tsbuildinfo
+vite.config.*.timestamp-*
+
+# Rust build output
+target
+*.rs.bk
+
+# Environment / secrets
+.env
+.env.*
+.envrc
+!.env.example
+!.env.*.example
+*.local
+
+# Logs
+*.log
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test and coverage output
+coverage
+.nyc_output
+playwright-report
+test-results
+
+# Tool caches
+.cache
+.turbo
+.parcel-cache
+
+# Archives and temporary files
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.tmp
+*.temp
+*.pid
+*.seed
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp

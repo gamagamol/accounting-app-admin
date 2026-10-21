@@ -14,6 +14,10 @@ vite.config.*.timestamp-*
 # Rust build output
 target
 *.rs.bk
+*.pdb
+bin
+tmp
+*.out
 
 # Environment / secrets
 .env

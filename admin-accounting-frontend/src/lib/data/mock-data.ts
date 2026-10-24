@@ -309,7 +309,7 @@ export const quotations: Quotation[] = [
 		customerName: 'PT Telkom Indonesia Tbk',
 		preparedBy: 'Ahmad Fauzi',
 		salesPerson: 'Reza Mahendra',
-		status: 'sales',
+		status: 'completed',
 		items: [
 			{ id: 'qi-003', productId: 'prod-003', productName: 'Executive Office Desk', quantity: 5, unit: 'Unit', unitPrice: 8500000, discount: 10, total: 38250000 },
 			{ id: 'qi-004', productId: 'prod-004', productName: 'Ergonomic Mesh Chair', quantity: 10, unit: 'Unit', unitPrice: 3750000, discount: 5, total: 35625000 }
@@ -328,7 +328,7 @@ export const quotations: Quotation[] = [
 		customerName: 'PT Pertamina (Persero)',
 		preparedBy: 'Ahmad Fauzi',
 		salesPerson: 'Reza Mahendra',
-		status: 'quotation',
+		status: 'created',
 		items: [
 			{ id: 'qi-005', productId: 'prod-005', productName: 'Daikin 2PK Split Air Conditioner', quantity: 8, unit: 'Unit', unitPrice: 12500000, discount: 8, total: 92000000 }
 		],
@@ -365,7 +365,7 @@ export const quotations: Quotation[] = [
 		customerName: 'PT Bank Central Asia Tbk',
 		preparedBy: 'Nurul Hidayah',
 		salesPerson: 'Reza Mahendra',
-		status: 'sales',
+		status: 'completed',
 		items: [
 			{ id: 'qi-008', productId: 'prod-003', productName: 'Executive Office Desk', quantity: 3, unit: 'Unit', unitPrice: 8500000, discount: 0, total: 25500000 },
 			{ id: 'qi-009', productId: 'prod-004', productName: 'Ergonomic Mesh Chair', quantity: 20, unit: 'Unit', unitPrice: 3750000, discount: 10, total: 67500000 },
@@ -412,7 +412,7 @@ export const salesOrders: SalesOrder[] = [
 		subtotal: 73875000,
 		tax: 7387500,
 		total: 81262500,
-		status: 'delivered'
+		status: 'completed'
 	},
 	{
 		id: 'so-003',
@@ -498,7 +498,7 @@ export const purchaseOrders: PurchaseOrder[] = [
 		subtotal: 40375000,
 		tax: 4037500,
 		total: 44412500,
-		status: 'received'
+		status: 'completed'
 	},
 	{
 		id: 'po-003',
@@ -566,7 +566,7 @@ export const deliveries: Delivery[] = [
 			{ id: 'di-001', productId: 'prod-001', productName: 'A4 Copy Paper 80gsm', quantity: 100, unit: 'Rim', unitPrice: 65000, discount: 5, total: 6175000 },
 			{ id: 'di-002', productId: 'prod-002', productName: 'HP LaserJet Printer Toner', quantity: 20, unit: 'Unit', unitPrice: 1250000, discount: 0, total: 25000000 }
 		],
-		status: 'delivered'
+		status: 'completed'
 	},
 	{
 		id: 'del-002',
@@ -579,7 +579,7 @@ export const deliveries: Delivery[] = [
 		items: [
 			{ id: 'di-003', productId: 'prod-003', productName: 'Executive Office Desk', quantity: 5, unit: 'Unit', unitPrice: 8500000, discount: 10, total: 38250000 }
 		],
-		status: 'delivered'
+		status: 'completed'
 	},
 	{
 		id: 'del-003',
@@ -592,7 +592,7 @@ export const deliveries: Delivery[] = [
 		items: [
 			{ id: 'di-004', productId: 'prod-004', productName: 'Ergonomic Mesh Chair', quantity: 10, unit: 'Unit', unitPrice: 3750000, discount: 5, total: 35625000 }
 		],
-		status: 'shipped'
+		status: 'created'
 	},
 	{
 		id: 'del-004',
@@ -606,7 +606,7 @@ export const deliveries: Delivery[] = [
 			{ id: 'di-005', productId: 'prod-001', productName: 'A4 Copy Paper 80gsm', quantity: 200, unit: 'Rim', unitPrice: 65000, discount: 10, total: 11700000 },
 			{ id: 'di-006', productId: 'prod-002', productName: 'HP LaserJet Printer Toner', quantity: 30, unit: 'Unit', unitPrice: 1250000, discount: 5, total: 35625000 }
 		],
-		status: 'delivered'
+		status: 'completed'
 	},
 	{
 		id: 'del-005',
@@ -636,7 +636,7 @@ export const goodsReceipts: GoodsReceipt[] = [
 		items: [
 			{ id: 'gi-001', productId: 'prod-001', productName: 'A4 Copy Paper 80gsm', quantity: 300, unit: 'Rim', unitPrice: 48000, discount: 0, total: 14400000 }
 		],
-		status: 'received'
+		status: 'completed'
 	},
 	{
 		id: 'gr-002',
@@ -649,7 +649,7 @@ export const goodsReceipts: GoodsReceipt[] = [
 		items: [
 			{ id: 'gi-002', productId: 'prod-002', productName: 'HP LaserJet Printer Toner', quantity: 50, unit: 'Unit', unitPrice: 850000, discount: 5, total: 40375000 }
 		],
-		status: 'received'
+		status: 'completed'
 	},
 	{
 		id: 'gr-003',
@@ -663,7 +663,7 @@ export const goodsReceipts: GoodsReceipt[] = [
 			{ id: 'gi-003', productId: 'prod-003', productName: 'Executive Office Desk', quantity: 10, unit: 'Unit', unitPrice: 5500000, discount: 0, total: 55000000 },
 			{ id: 'gi-004', productId: 'prod-004', productName: 'Ergonomic Mesh Chair', quantity: 30, unit: 'Unit', unitPrice: 2400000, discount: 10, total: 64800000 }
 		],
-		status: 'received'
+		status: 'completed'
 	},
 	{
 		id: 'gr-004',
@@ -704,7 +704,7 @@ export const payments: Payment[] = [
 		invoiceNo: 'INV/2024/001',
 		amount: 34292500,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -716,7 +716,7 @@ export const payments: Payment[] = [
 		invoiceNo: 'INV/2024/002',
 		amount: 40631250,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -740,7 +740,7 @@ export const payments: Payment[] = [
 		invoiceNo: 'INV/2024/004',
 		amount: 52057500,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -768,7 +768,7 @@ export const billPayments: BillPayment[] = [
 		invoiceNo: 'VINV/2024/001',
 		amount: 15840000,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -780,7 +780,7 @@ export const billPayments: BillPayment[] = [
 		invoiceNo: 'VINV/2024/002',
 		amount: 44412500,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -792,7 +792,7 @@ export const billPayments: BillPayment[] = [
 		invoiceNo: 'VINV/2024/003',
 		amount: 65890000,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -832,7 +832,7 @@ export const debtPayments: DebtPayment[] = [
 		purchaseNo: 'PO/2024/001',
 		amount: 15840000,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -844,7 +844,7 @@ export const debtPayments: DebtPayment[] = [
 		purchaseNo: 'PO/2024/002',
 		amount: 44412500,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -856,7 +856,7 @@ export const debtPayments: DebtPayment[] = [
 		purchaseNo: 'PO/2024/003',
 		amount: 131780000,
 		method: 'transfer',
-		status: 'paid',
+		status: 'completed',
 		preparedBy: 'Nurul Hidayah'
 	},
 	{
@@ -894,7 +894,8 @@ export const journalEntries: JournalEntry[] = [
 		debitAccount: '1-3000 Accounts Receivable',
 		creditAccount: '4-1000 Sales Revenue',
 		amount: 34292500,
-		reference: 'SO/2024/001'
+		reference: 'SO/2024/001',
+		status: 'completed'
 	},
 	{
 		id: 'je-002',
@@ -903,7 +904,8 @@ export const journalEntries: JournalEntry[] = [
 		debitAccount: '5-1000 Cost of Goods Sold',
 		creditAccount: '2-1000 Accounts Payable',
 		amount: 15840000,
-		reference: 'PO/2024/001'
+		reference: 'PO/2024/001',
+		status: 'completed'
 	},
 	{
 		id: 'je-003',
@@ -912,7 +914,8 @@ export const journalEntries: JournalEntry[] = [
 		debitAccount: '2-1000 Accounts Payable',
 		creditAccount: '1-2000 Bank BCA',
 		amount: 15840000,
-		reference: 'DP/2024/001'
+		reference: 'DP/2024/001',
+		status: 'completed'
 	},
 	{
 		id: 'je-004',
@@ -921,7 +924,8 @@ export const journalEntries: JournalEntry[] = [
 		debitAccount: '1-2000 Bank BCA',
 		creditAccount: '1-3000 Accounts Receivable',
 		amount: 34292500,
-		reference: 'PAY/2024/001'
+		reference: 'PAY/2024/001',
+		status: 'completed'
 	},
 	{
 		id: 'je-005',
@@ -930,7 +934,8 @@ export const journalEntries: JournalEntry[] = [
 		debitAccount: '1-3000 Accounts Receivable',
 		creditAccount: '4-1000 Sales Revenue',
 		amount: 52057500,
-		reference: 'SO/2024/003'
+		reference: 'SO/2024/003',
+		status: 'completed'
 	}
 ];
 

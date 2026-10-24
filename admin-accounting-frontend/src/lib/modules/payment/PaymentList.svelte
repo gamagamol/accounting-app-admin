@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import PaymentFormModal from './PaymentFormModal.svelte';
-	import PaymentDetailModal from './PaymentDetailModal.svelte';
-	import { payments, paymentActions } from '$lib/stores/dataStore';
+	import { payments, paymentActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
 	import type { Payment, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedPayment: Payment | null = null;
-	let paymentToEdit: Payment | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'paymentNo', label: 'Receipt No', sortable: true },
@@ -26,24 +21,30 @@
 	];
 
 	function openCreate() {
-		paymentToEdit = null;
-		isFormOpen = true;
+		goto('/customer-receipt/new');
 	}
 
 	function openEdit(item: Payment) {
-		paymentToEdit = item;
-		isFormOpen = true;
+		goto(`/customer-receipt/${item.id}/edit`);
 	}
 
 	function openDetail(item: Payment) {
-		selectedPayment = item;
-		isDetailOpen = true;
+		goto(`/customer-receipt/${item.id}`);
 	}
 
 	function handleDelete(item: Payment) {
-		if (confirm(`Delete payment receipt ${item.paymentNo}? This action cannot be undone.`)) {
-			paymentActions.delete(item.id);
-		}
+		if (!confirm(`Delete payment receipt ${item.paymentNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'sales',
+			entityType: 'customer_receipt',
+			entityId: item.id,
+			documentNumber: item.paymentNo,
+			action: 'delete',
+			actor: $user?.name || 'Finance Team',
+			summary: `Deleted customer receipt ${item.paymentNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		paymentActions.delete(item.id);
 	}
 </script>
 
@@ -77,7 +78,7 @@
 					{value}
 				</span>
 			{:else if column.key === 'status'}
-				<Badge status={value} label={value === 'paid' ? 'Received' : 'Pending'} />
+				<Badge status={value} />
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
 			{/if}
@@ -94,7 +95,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<PaymentFormModal bind:isOpen={isFormOpen} {paymentToEdit} />
-	<PaymentDetailModal bind:isOpen={isDetailOpen} payment={selectedPayment} />
 </div>

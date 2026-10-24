@@ -99,7 +99,8 @@
         items,
         subtotal,
         tax,
-        total
+        total,
+        status: purchaseToEdit.status === 'completed' ? 'reopen' : purchaseToEdit.status
       });
     } else {
       purchaseActions.add({

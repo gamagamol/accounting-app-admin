@@ -25,7 +25,7 @@
 					</div>
 					<div class="text-right shrink-0">
 						<p class="font-mono font-bold text-gray-900 dark:text-gray-100">{formatCurrency(so.total)}</p>
-						<Badge status={so.status} label={so.status === 'pending' ? 'Processing' : so.status === 'delivered' ? 'Delivered' : 'Completed'} />
+						<Badge status={so.status} />
 					</div>
 				</div>
 			{/each}

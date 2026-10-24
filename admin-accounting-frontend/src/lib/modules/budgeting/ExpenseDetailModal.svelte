@@ -119,7 +119,7 @@
 				<DetailField label="Attachment" value={current.attachmentUrl || '—'} />
 				<DetailField label="Submitted By" value={current.submittedBy || '—'} />
 				<DetailField label="Approved By" value={current.approvedBy || '—'} />
-				{#if current.status === 'posted'}
+				{#if current.status === 'completed'}
 					<DetailField label="Posted At" value={formatDate(current.postedAt)} />
 					<DetailField label="GL Reference" value={current.glReference} mono />
 				{/if}
@@ -155,7 +155,7 @@
 					Submit for Approval
 				</Button>
 			{/if}
-			{#if current.status === 'submitted'}
+			{#if current.status === 'pending'}
 				<ApprovalActions
 					rejectFirst
 					disabled={working}

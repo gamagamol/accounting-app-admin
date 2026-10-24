@@ -99,7 +99,8 @@
         items,
         subtotal,
         tax,
-        total
+        total,
+        status: salesToEdit.status === 'completed' ? 'reopen' : salesToEdit.status
       });
     } else {
       salesActions.add({

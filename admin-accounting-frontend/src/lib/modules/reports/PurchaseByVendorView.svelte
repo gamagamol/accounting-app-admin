@@ -35,7 +35,7 @@
 			const existing = map.get(inv.supplierName);
 			if (!existing) return;
 			existing.invoiced += inv.amount;
-			if (inv.status === 'paid') existing.paid += inv.amount;
+			if (inv.status === 'completed') existing.paid += inv.amount;
 			else existing.outstanding += inv.amount;
 		});
 
@@ -52,7 +52,7 @@
 		{ key: 'orderCount', label: 'PO Count', align: 'center', sortable: true },
 		{ key: 'totalPurchase', label: 'Total Purchases', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
 		{ key: 'invoiced', label: 'Invoiced', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
-		{ key: 'paid', label: 'Paid', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
+		{ key: 'completed', label: 'Paid', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
 		{ key: 'outstanding', label: 'Outstanding', align: 'right', sortable: true, format: (v) => formatCurrency(v) }
 	];
 

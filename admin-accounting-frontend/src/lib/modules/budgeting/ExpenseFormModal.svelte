@@ -447,7 +447,7 @@
 						<option value={form.status}>{form.status.replace(/_/g, ' ')}</option>
 					{:else}
 						<option value="draft">Draft</option>
-						<option value="submitted">Submit for approval</option>
+						<option value="pending">Pending approval</option>
 					{/if}
 				</select>
 			</FormField>

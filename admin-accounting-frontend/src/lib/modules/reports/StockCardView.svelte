@@ -19,12 +19,18 @@
 		unit: string;
 	}
 
-	const productNames = Array.from(new Set($stockMovements.map((m) => m.productName)));
+	const productNames = Array.from(
+		new Set(
+			$stockMovements
+				.filter((m) => m.status === 'completed')
+				.map((m) => m.productName)
+		)
+	);
 	let selectedProduct = productNames[0] || '';
 
 	$: rows = (() => {
 		const filtered = $stockMovements
-			.filter((m) => m.productName === selectedProduct)
+			.filter((m) => m.status === 'completed' && m.productName === selectedProduct)
 			.sort((a, b) => a.date.localeCompare(b.date));
 
 		let running = 0;

@@ -34,7 +34,7 @@
           <p class="text-xs text-gray-500 font-mono">No. Transaksi: {purchase.transactionNo}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Badge status={purchase.status} label={purchase.status === 'pending' ? 'Awaiting Goods' : purchase.status === 'received' ? 'Received' : 'Completed'} />
+          <Badge status={purchase.status} />
           <Button size="sm" variant="secondary" on:click={() => (isPrintOpen = true)}>
             🖨️ Print PO
           </Button>

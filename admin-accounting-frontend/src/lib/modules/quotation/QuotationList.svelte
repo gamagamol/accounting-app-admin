@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import QuotationFormModal from './QuotationFormModal.svelte';
-	import QuotationDetailModal from './QuotationDetailModal.svelte';
-	import { quotations, quotationActions } from '$lib/stores/dataStore';
+	import { quotations, quotationActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
 	import type { Quotation, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedQuotation: Quotation | null = null;
-	let quotationToEdit: Quotation | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'quotationNo', label: 'Quotation No', sortable: true },
@@ -25,24 +20,30 @@
 	];
 
 	function openCreate() {
-		quotationToEdit = null;
-		isFormOpen = true;
+		goto('/quotation/new');
 	}
 
 	function openEdit(item: Quotation) {
-		quotationToEdit = item;
-		isFormOpen = true;
+		goto(`/quotation/${item.id}/edit`);
 	}
 
 	function openDetail(item: Quotation) {
-		selectedQuotation = item;
-		isDetailOpen = true;
+		goto(`/quotation/${item.id}`);
 	}
 
 	function handleDelete(item: Quotation) {
-		if (confirm(`Delete quotation ${item.quotationNo}? This action cannot be undone.`)) {
-			quotationActions.delete(item.id);
-		}
+		if (!confirm(`Delete quotation ${item.quotationNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'sales',
+			entityType: 'quotation',
+			entityId: item.id,
+			documentNumber: item.quotationNo,
+			action: 'delete',
+			actor: $user?.name || 'Sales Admin',
+			summary: `Deleted quotation ${item.quotationNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		quotationActions.delete(item.id);
 	}
 </script>
 
@@ -72,10 +73,7 @@
 					{value}
 				</span>
 			{:else if column.key === 'status'}
-				<Badge
-					status={value}
-					label={value === 'quotation' ? 'Quotation' : value === 'sales' ? 'Converted to SO' : 'Completed'}
-				/>
+				<Badge status={value} />
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
 			{/if}
@@ -92,7 +90,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<QuotationFormModal bind:isOpen={isFormOpen} {quotationToEdit} />
-	<QuotationDetailModal bind:isOpen={isDetailOpen} quotation={selectedQuotation} />
 </div>

@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import DeliveryFormModal from './DeliveryFormModal.svelte';
-	import DeliveryDetailModal from './DeliveryDetailModal.svelte';
-	import { deliveries, deliveryActions } from '$lib/stores/dataStore';
+	import { deliveries, deliveryActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatDate } from '$lib/utils/formatters';
 	import type { Delivery, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedDelivery: Delivery | null = null;
-	let deliveryToEdit: Delivery | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'deliveryNo', label: 'Delivery Order No', sortable: true },
@@ -25,24 +20,30 @@
 	];
 
 	function openCreate() {
-		deliveryToEdit = null;
-		isFormOpen = true;
+		goto('/delivery/new');
 	}
 
 	function openEdit(item: Delivery) {
-		deliveryToEdit = item;
-		isFormOpen = true;
+		goto(`/delivery/${item.id}/edit`);
 	}
 
 	function openDetail(item: Delivery) {
-		selectedDelivery = item;
-		isDetailOpen = true;
+		goto(`/delivery/${item.id}`);
 	}
 
 	function handleDelete(item: Delivery) {
-		if (confirm(`Delete delivery order ${item.deliveryNo}? This action cannot be undone.`)) {
-			deliveryActions.delete(item.id);
-		}
+		if (!confirm(`Delete delivery order ${item.deliveryNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'sales',
+			entityType: 'delivery_order',
+			entityId: item.id,
+			documentNumber: item.deliveryNo,
+			action: 'delete',
+			actor: $user?.name || 'Logistics Team',
+			summary: `Deleted delivery order ${item.deliveryNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		deliveryActions.delete(item.id);
 	}
 </script>
 
@@ -74,7 +75,7 @@
 			{:else if column.key === 'status'}
 				<Badge
 					status={value}
-					label={value === 'delivered' ? 'Delivered' : value === 'shipped' ? 'Shipped' : 'Processing'}
+					label={value === 'completed' ? 'Delivered' : value === 'created' ? 'Shipped' : 'Processing'}
 				/>
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
@@ -92,7 +93,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<DeliveryFormModal bind:isOpen={isFormOpen} {deliveryToEdit} />
-	<DeliveryDetailModal bind:isOpen={isDetailOpen} delivery={selectedDelivery} />
 </div>

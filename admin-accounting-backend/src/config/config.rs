@@ -28,8 +28,12 @@ pub struct Config {
     pub redis_password: String,
     pub redis_db: i64,
 
+    pub mongo_enabled: bool,
+    pub mongo_uri: String,
+    pub mongo_database: String,
+    pub mongo_audit_collection: String,
+
     pub log_level: String,
-    pub log_format: String,
 }
 
 impl Default for Config {
@@ -53,8 +57,12 @@ impl Default for Config {
             redis_password: String::new(),
             redis_db: 0,
 
+            mongo_enabled: false,
+            mongo_uri: "mongodb://localhost:27017".to_string(),
+            mongo_database: "admin_accounting".to_string(),
+            mongo_audit_collection: "audit_logs".to_string(),
+
             log_level: "info".to_string(),
-            log_format: "json".to_string(),
         }
     }
 }
@@ -83,16 +91,19 @@ impl Config {
             redis_password: env_or("REDIS_PASSWORD", &defaults.redis_password),
             redis_db: env_parse("REDIS_DB", defaults.redis_db)?,
 
+            mongo_enabled: env_parse("MONGO_ENABLED", defaults.mongo_enabled)?,
+            mongo_uri: env_or("MONGO_URI", &defaults.mongo_uri),
+            mongo_database: env_or("MONGO_DATABASE", &defaults.mongo_database),
+            mongo_audit_collection: env_or(
+                "MONGO_AUDIT_COLLECTION",
+                &defaults.mongo_audit_collection,
+            ),
+
             log_level: env_or("LOG_LEVEL", &defaults.log_level).to_lowercase(),
-            log_format: env_or("LOG_FORMAT", &defaults.log_format).to_lowercase(),
         };
 
         if !matches!(config.db_driver.as_str(), "memory" | "postgres") {
             bail!("DB_DRIVER must be either memory or postgres");
-        }
-
-        if !matches!(config.log_format.as_str(), "json" | "text") {
-            bail!("LOG_FORMAT must be either json or text");
         }
 
         match config.app_port {

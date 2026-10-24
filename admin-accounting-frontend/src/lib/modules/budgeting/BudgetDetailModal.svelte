@@ -163,12 +163,12 @@
 	<svelte:fragment slot="footer">
 		<Button variant="secondary" on:click={() => (isOpen = false)}>Close</Button>
 		{#if current}
-			{#if current.status === 'draft' || current.status === 'rejected' || current.status === 'revised'}
+			{#if current.status === 'draft' || current.status === 'rejected' || current.status === 'reopen'}
 				<Button variant="primary" on:click={() => runAction('submit')} disabled={working}>
 					Submit for Approval
 				</Button>
 			{/if}
-			{#if current.status === 'submitted'}
+			{#if current.status === 'pending'}
 				<ApprovalActions
 					rejectFirst
 					disabled={working}

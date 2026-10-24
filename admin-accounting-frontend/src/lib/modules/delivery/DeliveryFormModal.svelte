@@ -3,7 +3,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import FormField from '$lib/components/ui/FormField.svelte';
   import { salesOrders, deliveryActions } from '$lib/stores/dataStore';
-  import type { Delivery, TransactionItem } from '$lib/types';
+  import { transactionStatusOptions } from '$lib/data/transaction-statuses';
+  import type { Delivery, TransactionItem, TransactionStatus } from '$lib/types';
 
   export let isOpen: boolean = false;
   export let deliveryToEdit: Delivery | null = null;
@@ -11,7 +12,7 @@
   let salesNo = '';
   let date = new Date().toISOString().split('T')[0];
   let customerName = '';
-  let status: 'pending' | 'shipped' | 'delivered' = 'shipped';
+  let status: TransactionStatus = 'created';
   let items: TransactionItem[] = [];
 
   $: if (isOpen) {
@@ -26,7 +27,7 @@
       salesNo = firstSO?.salesNo || '';
       date = new Date().toISOString().split('T')[0];
       customerName = firstSO?.customerName || '';
-      status = 'shipped';
+      status = 'created';
       items = firstSO ? [...firstSO.items] : [];
     }
   }
@@ -105,9 +106,9 @@
           bind:value={status}
           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
         >
-          <option value="pending">Processing / Packing</option>
-          <option value="shipped">In Transit (Shipped)</option>
-          <option value="delivered">Delivered</option>
+          {#each transactionStatusOptions as option}
+            <option value={option.value}>{option.label}</option>
+          {/each}
         </select>
       </FormField>
     </div>

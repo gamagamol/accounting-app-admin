@@ -1,5 +1,7 @@
 <script lang="ts">
-	import PaymentList from '$lib/modules/payment/PaymentList.svelte';
+	import EntityCrudList from '$lib/components/transactions/EntityCrudList.svelte';
+	import { customerReceiptDefinition } from '$lib/components/transactions/crudDefinitions';
+	import { payments } from '$lib/stores/dataStore';
 </script>
 
-<PaymentList />
+<EntityCrudList definition={customerReceiptDefinition} store={payments} />

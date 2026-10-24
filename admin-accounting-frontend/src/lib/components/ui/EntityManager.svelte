@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from './DataTable.svelte';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
@@ -6,8 +7,9 @@
 	import DataTableCell from './DataTableCell.svelte';
 	import RowActions from './RowActions.svelte';
 	import PageHeader from './PageHeader.svelte';
+	import PendingApprovalPanel from '$lib/components/transactions/PendingApprovalPanel.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
-	import type { TableColumn } from '$lib/types';
+	import type { PendingTransactionType, TableColumn } from '$lib/types';
 	import type { FieldDef } from '$lib/types/entity';
 
 	export let title: string;
@@ -28,11 +30,28 @@
 	export let onSave: (payload: Record<string, any>, id?: string) => void = () => {};
 	export let onDelete: (id: string) => void = () => {};
 
+	// Optional pending-approval integration for list/modal-only transactions.
+	// When set, the detail modal renders the shared pending panel and history.
+	export let pendingType: PendingTransactionType | null = null;
+	export let pendingNumberKey: string = '';
+
+	// Optional dedicated-page mode. When these are set, create/view/edit
+	// actions navigate to a full page instead of opening a modal.
+	export let createHref: string = '';
+	export let viewHref: ((row: any) => string) | null = null;
+	export let editHref: ((row: any) => string) | null = null;
+
 	let isFormOpen = false;
 	let isDetailOpen = false;
 	let editingRow: any = null;
 	let detailRow: any = null;
 	let formData: Record<string, any> = {};
+
+	// Keep the open detail modal in sync with store updates, for example after
+	// the pending panel changes a row from pending to approved.
+	$: currentDetailRow = detailRow
+		? (data.find((row) => row.id === detailRow.id) ?? detailRow)
+		: null;
 
 	$: if (!displayKey && fields.length > 0) {
 		displayKey = fields[0].key;
@@ -60,12 +79,20 @@
 	}
 
 	function openCreate() {
+		if (createHref) {
+			goto(createHref);
+			return;
+		}
 		editingRow = null;
 		formData = blankForm();
 		isFormOpen = true;
 	}
 
 	function openEdit(row: any) {
+		if (editHref) {
+			goto(editHref(row));
+			return;
+		}
 		editingRow = row;
 		const next: Record<string, any> = {};
 		for (const field of fields) {
@@ -76,6 +103,10 @@
 	}
 
 	function openDetail(row: any) {
+		if (viewHref) {
+			goto(viewHref(row));
+			return;
+		}
 		detailRow = row;
 		isDetailOpen = true;
 	}
@@ -212,18 +243,35 @@
 	</Modal>
 
 	<!-- Detail modal -->
-	<Modal bind:isOpen={isDetailOpen} title={`${entityName} Details`} size="xl">
-		{#if detailRow}
+	<Modal
+		bind:isOpen={isDetailOpen}
+		title={`${entityName} Details`}
+		size={pendingType ? '3xl' : 'xl'}
+	>
+		{#if currentDetailRow}
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
 				{#each fields as field}
 					<div class="border border-gray-200 dark:border-slate-800 rounded-lg p-3 {field.colSpan === 'full' ? 'sm:col-span-2' : ''}">
 						<p class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-slate-400">{field.label}</p>
 						<p class="mt-1 font-medium text-gray-800 dark:text-slate-100 break-words">
-							{displayValue(detailRow, field)}
+							{displayValue(currentDetailRow, field)}
 						</p>
 					</div>
 				{/each}
 			</div>
+
+			{#if pendingType}
+				<div class="mt-4">
+					<PendingApprovalPanel
+						transactionType={pendingType}
+						transactionId={currentDetailRow.id}
+						transactionNumber={pendingNumberKey
+							? currentDetailRow[pendingNumberKey]
+							: (currentDetailRow[displayKey] ?? currentDetailRow.id)}
+						status={currentDetailRow.status ?? 'draft'}
+					/>
+				</div>
+			{/if}
 		{/if}
 
 		<svelte:fragment slot="footer">

@@ -1,17 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import ExpenseDetailModal from './ExpenseDetailModal.svelte';
 	import { expenses } from '$lib/stores/dataStore';
 	import { expenseTypeLabel } from '$lib/data/accounting-options';
 	import { formatCurrency } from '$lib/utils/formatters';
 	import { currencyColumn, dateColumn } from '$lib/utils/tableColumns';
 	import type { ExpenseEntry, ExpenseType, TableColumn } from '$lib/types';
-
-	let isDetailOpen = false;
-	let detailExpense: ExpenseEntry | null = null;
 
 	const columns: TableColumn[] = [
 		dateColumn('date', 'Expense Date'),
@@ -24,7 +21,7 @@
 		{ key: 'glReference', label: 'GL Reference' }
 	];
 
-	$: posted = $expenses.filter((expense) => expense.status === 'posted');
+	$: posted = $expenses.filter((expense) => expense.status === 'completed');
 	$: postedTotals = posted.reduce(
 		(totals, expense) => ({
 			total: totals.total + expense.totalAmount,
@@ -35,8 +32,7 @@
 	);
 
 	function openDetail(expense: ExpenseEntry) {
-		detailExpense = expense;
-		isDetailOpen = true;
+		goto(`/posted-expenses/${expense.id}`);
 	}
 </script>
 
@@ -64,5 +60,3 @@
 		</svelte:fragment>
 	</DataTable>
 </div>
-
-<ExpenseDetailModal bind:isOpen={isDetailOpen} expense={detailExpense} />

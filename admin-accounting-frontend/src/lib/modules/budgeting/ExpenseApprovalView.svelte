@@ -1,13 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import FilterSelect from '$lib/components/ui/FilterSelect.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
-	import ApprovalActions from '$lib/components/ui/ApprovalActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import ExpenseDetailModal from './ExpenseDetailModal.svelte';
-	import { expenses, expenseActions } from '$lib/stores/dataStore';
+	import { expenses, expenseActions, auditLogActions } from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { expensesApi } from '$lib/api';
 	import { expenseTypeLabel } from '$lib/data/accounting-options';
@@ -15,16 +14,14 @@
 	import { getErrorMessage } from '$lib/utils/errors';
 	import type { ExpenseEntry, ExpenseType, TableColumn } from '$lib/types';
 
-	let statusFilter = 'submitted';
-	let isDetailOpen = false;
-	let detailExpense: ExpenseEntry | null = null;
+	let statusFilter = 'pending';
 	let workingId = '';
 
 	const stageOptions = [
-		{ value: 'submitted', label: 'Pending' },
+		{ value: 'pending', label: 'Pending' },
 		{ value: 'approved', label: 'Approved' },
 		{ value: 'rejected', label: 'Rejected' },
-		{ value: 'posted', label: 'Posted' }
+		{ value: 'completed', label: 'Completed' }
 	];
 
 	const columns: TableColumn[] = [
@@ -42,34 +39,38 @@
 		counts[expense.status] = (counts[expense.status] ?? 0) + 1;
 		return counts;
 	}, {});
-	$: pendingCount = statusCounts.submitted ?? 0;
+	$: pendingCount = statusCounts.pending ?? 0;
 	$: approvedCount = statusCounts.approved ?? 0;
-	$: postedCount = statusCounts.posted ?? 0;
+	$: postedCount = statusCounts.completed ?? 0;
 	$: rows =
 		statusFilter === 'all'
 			? $expenses
 			: $expenses.filter((expense) => expense.status === statusFilter);
 
 	function openDetail(expense: ExpenseEntry) {
-		detailExpense = expense;
-		isDetailOpen = true;
+		goto(`/expense-approval/${expense.id}`);
 	}
 
-	async function decide(expense: ExpenseEntry, decision: 'approve' | 'reject' | 'post') {
+	async function postExpense(expense: ExpenseEntry) {
+		const before = { ...expense } as unknown as Record<string, unknown>;
 		workingId = expense.id;
 		try {
-			if (decision === 'approve') {
-				await expensesApi.approve(expense.id, { approvedBy: $user?.name });
-				expenseActions.approve(expense.id, $user?.name);
-			} else if (decision === 'reject') {
-				await expensesApi.reject(expense.id, { approvedBy: $user?.name });
-				expenseActions.reject(expense.id, $user?.name);
-			} else {
-				await expensesApi.post(expense.id, { postedBy: $user?.name });
-				expenseActions.post(expense.id);
-			}
+			await expensesApi.post(expense.id, { postedBy: $user?.name });
+			expenseActions.post(expense.id);
+
+			auditLogActions.record({
+				module: 'budgeting',
+				entityType: 'expense_entry',
+				entityId: expense.id,
+				documentNumber: expense.expenseNo,
+				action: 'post',
+				actor: $user?.name || 'Finance Approver',
+				summary: `Posted expense ${expense.expenseNo} to the general ledger.`,
+				before,
+				after: { ...expense, status: 'completed' } as unknown as Record<string, unknown>
+			});
 		} catch (error) {
-			alert(getErrorMessage(error, 'Failed to update expense status.'));
+			alert(getErrorMessage(error, 'Failed to post expense.'));
 		} finally {
 			workingId = '';
 		}
@@ -111,18 +112,12 @@
 				viewTitle="View expense"
 				gap="normal"
 			>
-				{#if row.status === 'submitted'}
-					<ApprovalActions
-						disabled={workingId === row.id}
-						onApprove={() => decide(row, 'approve')}
-						onReject={() => decide(row, 'reject')}
-					/>
-				{:else if row.status === 'approved'}
+				{#if row.status === 'approved'}
 					<Button
 						size="sm"
 						variant="primary"
 						disabled={workingId === row.id}
-						on:click={() => decide(row, 'post')}
+						on:click={() => postExpense(row)}
 					>
 						Post to GL
 					</Button>
@@ -131,5 +126,3 @@
 		</svelte:fragment>
 	</DataTable>
 </div>
-
-<ExpenseDetailModal bind:isOpen={isDetailOpen} expense={detailExpense} />

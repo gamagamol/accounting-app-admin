@@ -20,8 +20,8 @@
 
 	$: reportData = $salesOrders.map((so) => {
 		const related = $deliveries.filter((d) => d.salesNo === so.salesNo);
-		const isDelivered = related.some((d) => d.status === 'delivered');
-		const isShipped = related.some((d) => d.status === 'shipped');
+		const isDelivered = related.some((d) => d.status === 'completed');
+		const isShipped = related.some((d) => d.status === 'created');
 		const fulfillment = isDelivered ? 100 : isShipped ? 50 : related.length > 0 ? 25 : 0;
 
 		return {
@@ -90,7 +90,7 @@
 					<span class="font-bold text-xs font-mono text-gray-700 dark:text-slate-200">{value}%</span>
 				</div>
 			{:else if column.key === 'status'}
-				<Badge status={value} label={value === 'pending' ? 'Pending' : value === 'delivered' ? 'Delivered' : 'Completed'} />
+				<Badge status={value} />
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
 			{/if}

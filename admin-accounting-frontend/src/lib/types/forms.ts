@@ -45,6 +45,7 @@ export interface QuotationFormData {
 	salesPersonId: string;
 	items: TransactionItemFormData[];
 	notes: string;
+	description?: string;
 }
 
 export interface TransactionItemFormData {
@@ -59,4 +60,5 @@ export interface PaymentFormData {
 	invoiceNo: string;
 	amount: number;
 	method: 'cash' | 'transfer' | 'check';
+	description?: string;
 }

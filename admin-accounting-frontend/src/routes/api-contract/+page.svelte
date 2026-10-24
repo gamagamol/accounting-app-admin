@@ -55,6 +55,16 @@
 				{ method: 'GET', path: '/api/inventory/valuation', purpose: 'Inventory valuation report' },
 				{ method: 'POST', path: '/api/inventory/adjustments', purpose: 'Post quantity / valuation adjustment' }
 			]
+		},
+		{
+			name: 'Pending Approvals',
+			rows: [
+				{ method: 'GET', path: '/api/pending', purpose: 'List pending history by transactionType' },
+				{ method: 'POST', path: '/api/pending', purpose: 'Request pending approval with a pending message' },
+				{ method: 'GET', path: '/api/pending/:transactionType/:id', purpose: 'Get one pending row' },
+				{ method: 'POST', path: '/api/pending/:transactionType/:id/approve', purpose: 'Approve with an approval message' },
+				{ method: 'POST', path: '/api/pending/:transactionType/:id/reject', purpose: 'Reject with a rejection message' }
+			]
 		}
 	];
 
@@ -126,11 +136,28 @@
 		status: 'pending'
 	};
 
+	const samplePending = {
+		transactionType: 'quotation',
+		transactionId: 'qt-001',
+		transactionNumber: 'QUO/2024/001',
+		requestedBy: 'Ahmad Fauzi',
+		pendingMessage: 'Customer requested a revised unit price before we continue.',
+		actorRole: 'SALES_ADMIN'
+	};
+
+	const samplePendingDecision = {
+		actor: 'Dewi Sartika',
+		actorRole: 'OWNER',
+		decisionMessage: 'Approved after checking the margin.'
+	};
+
 	const samples = [
 		{ label: 'POST /api/budgeting/budgets', payload: sampleBudget },
 		{ label: 'POST /api/budgeting/allocations', payload: sampleAllocation },
 		{ label: 'POST /api/expenses', payload: sampleExpense },
-		{ label: 'POST /api/budgeting/revisions', payload: sampleRevision }
+		{ label: 'POST /api/budgeting/revisions', payload: sampleRevision },
+		{ label: 'POST /api/pending', payload: samplePending },
+		{ label: 'POST /api/pending/:type/:id/approve', payload: samplePendingDecision }
 	];
 </script>
 

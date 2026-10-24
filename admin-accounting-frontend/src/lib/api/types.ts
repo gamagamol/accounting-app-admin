@@ -1,4 +1,4 @@
-import type { BudgetStatus, ExpenseStatus, ExpenseType } from '$lib/types';
+import type { BudgetStatus, ExpenseStatus, ExpenseType, TransactionStatus } from '$lib/types';
 
 /** Master data: departments / cost centers */
 export interface CreateDepartmentPayload {
@@ -22,6 +22,7 @@ export interface CreateAnnualBudgetPayload {
 	status: BudgetStatus;
 	preparedBy: string;
 	notes: string;
+	description?: string;
 }
 
 export type UpdateAnnualBudgetPayload = Partial<CreateAnnualBudgetPayload>;
@@ -37,6 +38,7 @@ export interface CreateBudgetAllocationPayload {
 	allocatedAmount: number;
 	usedAmount: number;
 	notes: string;
+	description?: string;
 }
 
 export type UpdateBudgetAllocationPayload = Partial<CreateBudgetAllocationPayload>;
@@ -51,7 +53,8 @@ export interface CreateBudgetRevisionPayload {
 	requestedAmount: number;
 	difference: number;
 	reason: string;
-	status: 'pending' | 'approved' | 'rejected';
+	status: TransactionStatus;
+	description?: string;
 }
 
 export type UpdateBudgetRevisionPayload = Partial<CreateBudgetRevisionPayload>;

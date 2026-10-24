@@ -7,6 +7,7 @@
 	import { budgetingApi } from '$lib/api';
 	import type { AnnualBudget } from '$lib/types';
 	import type { CreateAnnualBudgetPayload } from '$lib/api/types';
+	import { transactionStatusOptions } from '$lib/data/transaction-statuses';
 
 	export let isOpen = false;
 	export let budget: AnnualBudget | null = null;
@@ -164,12 +165,9 @@
 					bind:value={form.status}
 					class="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
 				>
-					<option value="draft">Draft</option>
-					<option value="submitted">Submitted</option>
-					<option value="approved">Approved</option>
-					<option value="rejected">Rejected</option>
-					<option value="revised">Revised</option>
-					<option value="closed">Closed</option>
+					{#each transactionStatusOptions as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
 				</select>
 			</FormField>
 

@@ -18,7 +18,7 @@
 	}
 
 	$: agingData = $billPayments.map((b, i) => {
-		const amount = b.status === 'paid' ? 0 : b.amount;
+		const amount = b.status === 'completed' ? 0 : b.amount;
 
 		let current = 0;
 		let days1_30 = 0;

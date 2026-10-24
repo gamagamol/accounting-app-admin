@@ -58,7 +58,7 @@
         preparedBy: 'Warehouse Admin',
         date,
         items,
-        status: 'received'
+        status: 'completed'
       });
     }
 

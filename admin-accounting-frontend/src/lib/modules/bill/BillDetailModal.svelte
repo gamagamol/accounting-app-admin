@@ -34,7 +34,7 @@
           <p class="text-xs text-gray-500 font-mono">Sales Order No: {bill.invoiceNo}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Badge status={bill.status} label={bill.status === 'paid' ? 'Paid' : 'Unpaid'} />
+          <Badge status={bill.status} />
           <Button size="sm" variant="secondary" on:click={() => (isPrintOpen = true)}>
             🖨️ Print Invoice
           </Button>

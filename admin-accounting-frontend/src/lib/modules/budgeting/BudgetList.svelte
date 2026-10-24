@@ -1,17 +1,18 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import FilterSelect from '$lib/components/ui/FilterSelect.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import BudgetFormModal from './BudgetFormModal.svelte';
-	import BudgetDetailModal from './BudgetDetailModal.svelte';
 	import {
 		annualBudgets,
 		budgetAllocations,
-		budgetingActions
+		budgetingActions,
+		auditLogActions
 	} from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import { budgetStatusOptions } from '$lib/data/accounting-options';
 	import { formatSummaryCurrency } from '$lib/utils/formatters';
@@ -19,10 +20,6 @@
 	import { getErrorMessage } from '$lib/utils/errors';
 	import type { AnnualBudget, TableColumn } from '$lib/types';
 
-	let isFormOpen = false;
-	let editingBudget: AnnualBudget | null = null;
-	let isDetailOpen = false;
-	let detailBudget: AnnualBudget | null = null;
 	let statusFilter = 'all';
 
 	const columns: TableColumn[] = [
@@ -38,25 +35,22 @@
 	$: totalBudget = $annualBudgets.reduce((sum, budget) => sum + budget.totalAmount, 0);
 	$: allocated = $budgetAllocations.reduce((sum, line) => sum + line.allocatedAmount, 0);
 	$: used = $budgetAllocations.reduce((sum, line) => sum + line.usedAmount, 0);
-	$: pending = $annualBudgets.filter((budget) => budget.status === 'submitted').length;
+	$: pending = $annualBudgets.filter((budget) => budget.status === 'pending').length;
 	$: filteredBudgets =
 		statusFilter === 'all'
 			? $annualBudgets
 			: $annualBudgets.filter((budget) => budget.status === statusFilter);
 
 	function openCreate() {
-		editingBudget = null;
-		isFormOpen = true;
+		goto('/budgets/new');
 	}
 
 	function openEdit(budget: AnnualBudget) {
-		editingBudget = budget;
-		isFormOpen = true;
+		goto(`/budgets/${budget.id}/edit`);
 	}
 
 	function openDetail(budget: AnnualBudget) {
-		detailBudget = budget;
-		isDetailOpen = true;
+		goto(`/budgets/${budget.id}`);
 	}
 
 	async function deleteBudget(budget: AnnualBudget) {
@@ -65,6 +59,16 @@
 		}
 		try {
 			await budgetingApi.deleteBudget(budget.id);
+			auditLogActions.record({
+				module: 'budgeting',
+				entityType: 'annual_budget',
+				entityId: budget.id,
+				documentNumber: budget.budgetNo,
+				action: 'delete',
+				actor: $user?.name || 'Budget Owner',
+				summary: `Deleted annual budget ${budget.budgetNo}.`,
+				before: budget as unknown as Record<string, unknown>
+			});
 			budgetingActions.deleteBudget(budget.id);
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to delete budget.'));
@@ -122,6 +126,3 @@
 		</svelte:fragment>
 	</DataTable>
 </div>
-
-<BudgetFormModal bind:isOpen={isFormOpen} budget={editingBudget} />
-<BudgetDetailModal bind:isOpen={isDetailOpen} budget={detailBudget} />

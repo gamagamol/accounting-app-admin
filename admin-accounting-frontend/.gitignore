@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules
+.svelte-kit
+build
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Local container configuration
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# Logs
+*.log
+npm-debug.log*

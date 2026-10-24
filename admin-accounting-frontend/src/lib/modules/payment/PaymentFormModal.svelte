@@ -62,7 +62,7 @@
         invoiceNo,
         amount,
         method,
-        status: 'paid',
+        status: 'completed',
         preparedBy: 'Cashier / Finance'
       });
     }

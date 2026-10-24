@@ -48,12 +48,13 @@
 			label: 'Status',
 			type: 'select',
 			badge: true,
-			badgeLabels: { reconciled: 'Reconciled', discrepancy: 'Discrepancy' },
+			badgeLabels: { completed: 'Completed', reopen: 'Reopen' },
 			options: [
-				{ value: 'reconciled', label: 'Reconciled' },
-				{ value: 'discrepancy', label: 'Discrepancy' }
+				{ value: 'completed', label: 'Completed' },
+				{ value: 'reopen', label: 'Reopen' }
 			]
-		}
+		},
+		{ key: 'description', label: 'Description / Message', type: 'textarea', colSpan: 'full' }
 	] as FieldDef[];
 
 	function handleSave(payload: Record<string, any>, id?: string) {
@@ -73,11 +74,13 @@
 	searchPlaceholder="Search reconciliations..."
 	createLabel="Add Reconciliation"
 	displayKey="bankAccount"
+	pendingType="bank_reconciliation"
+	pendingNumberKey="bankAccount"
 	onSave={handleSave}
 	onDelete={(id) => bankReconciliationActions.delete(id)}
 >
 	<svelte:fragment slot="extra-actions" let:row>
-		{#if row.status === 'discrepancy'}
+		{#if row.status === 'reopen' || row.status === 'approved'}
 			<button
 				type="button"
 				class="px-2 py-1 text-[10px] font-bold rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200"

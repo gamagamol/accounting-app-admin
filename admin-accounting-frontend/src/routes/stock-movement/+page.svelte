@@ -1,7 +1,8 @@
 <script lang="ts">
 	import EntityManager from '$lib/components/ui/EntityManager.svelte';
-	import type { FieldDef } from '$lib/types/entity';
-	import { stockMovements, inventoryActions } from '$lib/stores/dataStore';
+	import { stockMovements, inventoryActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
+	import { stockMovementFields } from '$lib/modules/inventory/fields';
 	import { formatDate, formatNumber } from '$lib/utils/formatters';
 	import type { TableColumn } from '$lib/types';
 
@@ -12,36 +13,24 @@
 		{ key: 'type', label: 'Movement', align: 'center' },
 		{ key: 'warehouse', label: 'Warehouse', sortable: true },
 		{ key: 'quantity', label: 'Qty', align: 'right', format: (v, r) => `${formatNumber(Number(v) || 0)} ${r.unit ?? ''}` },
-		{ key: 'reference', label: 'Reference' }
+		{ key: 'reference', label: 'Reference' },
+		{ key: 'status', label: 'Status', align: 'center' }
 	];
 
-	const fields: FieldDef[] = [
-		{ key: 'date', label: 'Movement Date', type: 'date', required: true },
-		{ key: 'docNo', label: 'Document No', type: 'text', required: true, placeholder: 'GR/2024/001' },
-		{ key: 'productCode', label: 'Product Code', type: 'text' },
-		{ key: 'productName', label: 'Product Name', type: 'text', required: true },
-		{
-			key: 'type',
-			label: 'Movement Type',
-			type: 'select',
-			badge: true,
-			badgeLabels: { IN: 'Stock In', OUT: 'Stock Out', ADJUST: 'Adjustment', TRANSFER: 'Transfer' },
-			options: [
-				{ value: 'IN', label: 'Stock In' },
-				{ value: 'OUT', label: 'Stock Out' },
-				{ value: 'ADJUST', label: 'Adjustment' },
-				{ value: 'TRANSFER', label: 'Transfer' }
-			]
-		},
-		{ key: 'warehouse', label: 'Warehouse', type: 'text' },
-		{ key: 'quantity', label: 'Quantity', type: 'number', required: true },
-		{ key: 'unit', label: 'Unit', type: 'text', placeholder: 'Pcs' },
-		{ key: 'reference', label: 'Reference Document', type: 'text', colSpan: 'full' }
-	];
-
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) inventoryActions.updateMovement(id, payload);
-		else inventoryActions.addMovement(payload as any);
+	function handleDelete(id: string) {
+		const item = $stockMovements.find((movement) => movement.id === id);
+		if (!item) return;
+		auditLogActions.record({
+			module: 'inventory',
+			entityType: 'stock_movement',
+			entityId: item.id,
+			documentNumber: item.docNo,
+			action: 'delete',
+			actor: $user?.name || 'Warehouse Team',
+			summary: `Deleted stock movement ${item.docNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		inventoryActions.deleteMovement(id);
 	}
 </script>
 
@@ -50,12 +39,14 @@
 	description="Track every stock in, stock out, transfer and adjustment movement across warehouses."
 	entityName="stock movement"
 	{columns}
-	{fields}
+	fields={stockMovementFields}
 	data={$stockMovements}
-	searchKeys={['docNo', 'productCode', 'productName', 'type', 'warehouse', 'reference']}
+	searchKeys={['docNo', 'productCode', 'productName', 'type', 'warehouse', 'reference', 'status']}
 	searchPlaceholder="Search stock movements..."
 	createLabel="Record Movement"
 	displayKey="docNo"
-	onSave={handleSave}
-	onDelete={(id) => inventoryActions.deleteMovement(id)}
+	createHref="/stock-movement/new"
+	viewHref={(row) => `/stock-movement/${row.id}`}
+	editHref={(row) => `/stock-movement/${row.id}/edit`}
+	onDelete={handleDelete}
 />

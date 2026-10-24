@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import GoodsFormModal from './GoodsFormModal.svelte';
-	import GoodsDetailModal from './GoodsDetailModal.svelte';
-	import { goodsReceipts, goodsReceiptActions } from '$lib/stores/dataStore';
+	import { goodsReceipts, goodsReceiptActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatDate } from '$lib/utils/formatters';
 	import type { GoodsReceipt, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedGoods: GoodsReceipt | null = null;
-	let goodsToEdit: GoodsReceipt | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'receiptNo', label: 'Receipt No', sortable: true },
@@ -25,24 +20,30 @@
 	];
 
 	function openCreate() {
-		goodsToEdit = null;
-		isFormOpen = true;
+		goto('/goods/new');
 	}
 
 	function openEdit(item: GoodsReceipt) {
-		goodsToEdit = item;
-		isFormOpen = true;
+		goto(`/goods/${item.id}/edit`);
 	}
 
 	function openDetail(item: GoodsReceipt) {
-		selectedGoods = item;
-		isDetailOpen = true;
+		goto(`/goods/${item.id}`);
 	}
 
 	function handleDelete(item: GoodsReceipt) {
-		if (confirm(`Delete goods receipt ${item.receiptNo}? This action cannot be undone.`)) {
-			goodsReceiptActions.delete(item.id);
-		}
+		if (!confirm(`Delete goods receipt ${item.receiptNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'purchase',
+			entityType: 'goods_receipt',
+			entityId: item.id,
+			documentNumber: item.receiptNo,
+			action: 'delete',
+			actor: $user?.name || 'Warehouse Admin',
+			summary: `Deleted goods receipt ${item.receiptNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		goodsReceiptActions.delete(item.id);
 	}
 </script>
 
@@ -74,7 +75,7 @@
 			{:else if column.key === 'purchaseNo'}
 				<span class="font-mono text-gray-700 dark:text-gray-200 font-semibold">{value}</span>
 			{:else if column.key === 'status'}
-				<Badge status={value} label={value === 'received' ? 'Received' : 'Processing'} />
+				<Badge status={value} />
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
 			{/if}
@@ -91,7 +92,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<GoodsFormModal bind:isOpen={isFormOpen} {goodsToEdit} />
-	<GoodsDetailModal bind:isOpen={isDetailOpen} goods={selectedGoods} />
 </div>

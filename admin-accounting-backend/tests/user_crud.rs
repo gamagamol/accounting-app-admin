@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use admin_accounting_backend::app::{modules, server::build_app, user::repo::MemoryUserRepository};
+use admin_accounting_backend::app::{
+    audit::repo::MemoryAuditRepository, modules, pending::repo::MemoryPendingRepository,
+    server::build_app, user::repo::MemoryUserRepository,
+};
 use admin_accounting_backend::config::Config;
 use axum::Router;
 use axum::body::{Body, to_bytes};
@@ -10,9 +13,15 @@ use tower::ServiceExt;
 
 fn test_app() -> Router {
     let config = Arc::new(Config::default());
-    let repo = Arc::new(MemoryUserRepository::new());
-    let user_module = modules::init_user(repo);
-    build_app(config, user_module.handler)
+    let user_module = modules::init_user(Arc::new(MemoryUserRepository::new()));
+    let audit_module = modules::init_audit(Arc::new(MemoryAuditRepository::new()));
+    let pending_module = modules::init_pending(Arc::new(MemoryPendingRepository::new()));
+    build_app(
+        config,
+        user_module.handler,
+        audit_module.handler,
+        pending_module.handler,
+    )
 }
 
 async fn send(

@@ -20,7 +20,7 @@
           <h3 class="text-base font-bold text-gray-900 mt-1">{goods.supplierName}</h3>
           <p class="text-xs text-gray-500 font-mono">No. PO Referensi: {goods.purchaseNo}</p>
         </div>
-        <Badge status={goods.status} label={goods.status === 'received' ? 'Received at Warehouse' : 'Processing'} />
+        <Badge status={goods.status} />
       </div>
 
       <div class="grid grid-cols-2 gap-3 text-xs">

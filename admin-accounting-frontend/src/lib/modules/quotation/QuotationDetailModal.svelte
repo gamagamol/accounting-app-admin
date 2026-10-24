@@ -34,7 +34,7 @@
           <p class="text-xs text-gray-500 font-mono">No. Transaksi: {quotation.transactionNo}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Badge status={quotation.status} label={quotation.status} />
+          <Badge status={quotation.status} />
           <Button size="sm" variant="secondary" on:click={() => (isPrintOpen = true)}>
             🖨️ Print
           </Button>
@@ -115,7 +115,7 @@
 
   <svelte:fragment slot="footer">
     <Button variant="secondary" on:click={() => (isOpen = false)}>Close</Button>
-    {#if quotation && quotation.status === 'quotation'}
+    {#if quotation && (quotation.status === 'draft' || quotation.status === 'created')}
       <Button variant="success" on:click={handleConvertToSales}>
         🛒 Jadikan Sales Order (SO)
       </Button>

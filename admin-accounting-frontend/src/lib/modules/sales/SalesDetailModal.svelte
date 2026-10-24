@@ -43,7 +43,7 @@
           <p class="text-xs text-gray-500 font-mono">No. Transaksi: {sales.transactionNo}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Badge status={sales.status} label={sales.status === 'pending' ? 'Awaiting Shipment' : sales.status === 'delivered' ? 'Delivered' : 'Completed'} />
+          <Badge status={sales.status} />
           <Button size="sm" variant="secondary" on:click={() => (isPrintOpen = true)}>
             🖨️ Print SO
           </Button>

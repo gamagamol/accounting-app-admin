@@ -23,14 +23,15 @@
 			label: 'Status',
 			type: 'select',
 			badge: true,
-			badgeLabels: { open: 'Open', closed: 'Closed' },
+			badgeLabels: { pending: 'Pending', completed: 'Completed' },
 			options: [
-				{ value: 'open', label: 'Open' },
-				{ value: 'closed', label: 'Closed' }
+				{ value: 'pending', label: 'Pending' },
+				{ value: 'completed', label: 'Completed' }
 			]
 		},
 		{ key: 'closedBy', label: 'Closed By', type: 'text' },
 		{ key: 'closedAt', label: 'Closed At', type: 'date' },
+		{ key: 'description', label: 'Description / Message', type: 'textarea', colSpan: 'full' },
 		{ key: 'notes', label: 'Closing Notes', type: 'textarea', colSpan: 'full' }
 	];
 
@@ -51,11 +52,13 @@
 	searchPlaceholder="Search periods..."
 	createLabel="Add Period"
 	displayKey="period"
+	pendingType="period_closing"
+	pendingNumberKey="period"
 	onSave={handleSave}
 	onDelete={(id) => periodClosingActions.delete(id)}
 >
 	<svelte:fragment slot="extra-actions" let:row>
-		{#if row.status === 'open'}
+		{#if row.status === 'pending' || row.status === 'approved'}
 			<button
 				type="button"
 				class="px-2 py-1 text-[10px] font-bold rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-200"

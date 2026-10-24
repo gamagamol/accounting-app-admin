@@ -59,7 +59,7 @@
 
 	$: budgetNameById = new Map($annualBudgets.map((budget) => [budget.id, budget.name]));
 	$: approvedExpensesByBudget = $expenses
-		.filter((expense) => expense.status === 'approved' || expense.status === 'posted')
+		.filter((expense) => expense.status === 'approved' || expense.status === 'completed')
 		.reduce<Record<string, ExpenseEntry[]>>((groups, expense) => {
 			const group = groups[expense.budgetId] ?? [];
 			group.push(expense);

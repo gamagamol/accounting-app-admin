@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import SalesFormModal from './SalesFormModal.svelte';
-	import SalesDetailModal from './SalesDetailModal.svelte';
-	import { salesOrders, salesActions } from '$lib/stores/dataStore';
+	import { salesOrders, salesActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
 	import type { SalesOrder, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedSales: SalesOrder | null = null;
-	let salesToEdit: SalesOrder | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'salesNo', label: 'Sales Order No', sortable: true },
@@ -25,24 +20,30 @@
 	];
 
 	function openCreate() {
-		salesToEdit = null;
-		isFormOpen = true;
+		goto('/sales/new');
 	}
 
 	function openEdit(item: SalesOrder) {
-		salesToEdit = item;
-		isFormOpen = true;
+		goto(`/sales/${item.id}/edit`);
 	}
 
 	function openDetail(item: SalesOrder) {
-		selectedSales = item;
-		isDetailOpen = true;
+		goto(`/sales/${item.id}`);
 	}
 
 	function handleDelete(item: SalesOrder) {
-		if (confirm(`Delete sales order ${item.salesNo}? This action cannot be undone.`)) {
-			salesActions.delete(item.id);
-		}
+		if (!confirm(`Delete sales order ${item.salesNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'sales',
+			entityType: 'sales_order',
+			entityId: item.id,
+			documentNumber: item.salesNo,
+			action: 'delete',
+			actor: $user?.name || 'Sales Admin',
+			summary: `Deleted sales order ${item.salesNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		salesActions.delete(item.id);
 	}
 </script>
 
@@ -74,7 +75,7 @@
 			{:else if column.key === 'status'}
 				<Badge
 					status={value}
-					label={value === 'pending' ? 'Processing' : value === 'delivered' ? 'Delivered' : value === 'shipped' ? 'Shipped' : 'Completed'}
+					label={value === 'pending' ? 'Processing' : value === 'completed' ? 'Delivered' : value === 'created' ? 'Shipped' : 'Completed'}
 				/>
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
@@ -92,7 +93,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<SalesFormModal bind:isOpen={isFormOpen} {salesToEdit} />
-	<SalesDetailModal bind:isOpen={isDetailOpen} sales={selectedSales} />
 </div>

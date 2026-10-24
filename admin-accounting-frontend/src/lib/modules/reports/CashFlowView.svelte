@@ -16,7 +16,7 @@
 
 	$: cashRows = [
 		...$payments
-			.filter((p) => p.status === 'paid')
+			.filter((p) => p.status === 'completed')
 			.map((p) => ({
 				date: p.date,
 				reference: p.paymentNo,
@@ -26,7 +26,7 @@
 				outflow: 0
 			})),
 		...$debtPayments
-			.filter((p) => p.status === 'paid')
+			.filter((p) => p.status === 'completed')
 			.map((p) => ({
 				date: p.date,
 				reference: p.paymentNo,

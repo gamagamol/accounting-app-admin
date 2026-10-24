@@ -118,7 +118,7 @@
         customerName: cust.companyName,
         preparedBy: 'Ahmad Fauzi',
         salesPerson,
-        status: 'quotation',
+        status: 'created',
         items,
         subtotal,
         tax,

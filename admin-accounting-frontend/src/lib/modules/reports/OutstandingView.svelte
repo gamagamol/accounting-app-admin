@@ -111,7 +111,7 @@
 						{value}
 					</span>
 				{:else if column.key === 'status'}
-					<Badge status="pending" label="Unpaid" />
+					<Badge status="pending" />
 				{:else}
 					{column.format ? column.format(value, row) : value}
 				{/if}
@@ -130,7 +130,7 @@
 						{value}
 					</span>
 				{:else if column.key === 'status'}
-					<Badge status="pending" label="Pending Shipment" />
+					<Badge status="pending" />
 				{:else}
 					{column.format ? column.format(value, row) : value}
 				{/if}
@@ -149,7 +149,7 @@
 						{value}
 					</span>
 				{:else if column.key === 'status'}
-					<Badge status="pending" label="Awaiting Goods" />
+					<Badge status="pending" />
 				{:else}
 					{column.format ? column.format(value, row) : value}
 				{/if}

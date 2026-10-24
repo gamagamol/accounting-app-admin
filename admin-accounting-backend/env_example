@@ -2,11 +2,10 @@ APP_NAME=admin-accounting-backend
 APP_ENV=development
 APP_PORT=8080
 
-# Logging: debug | info | warn | error
-# RUST_LOG can override LOG_LEVEL when set.
+# Logging uses Rust's default tracing subscriber (plain text).
+# RUST_LOG overrides LOG_LEVEL when set.
 LOG_LEVEL=info
-# Logging: json | text
-LOG_FORMAT=json
+RUST_LOG=info
 
 # Database: memory (default, no Postgres needed) | postgres
 DB_DRIVER=memory
@@ -23,3 +22,9 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_DB=0
+
+# MongoDB stores the immutable audit trail (no PostgreSQL audit table).
+MONGO_ENABLED=false
+MONGO_URI=mongodb://localhost:27017
+MONGO_DATABASE=admin_accounting
+MONGO_AUDIT_COLLECTION=audit_logs

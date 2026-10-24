@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, type Writable } from 'svelte/store';
 import type {
 	Customer,
 	Product,
@@ -33,8 +33,22 @@ import type {
 	BudgetAllocation,
 	BudgetRevision,
 	AppSettings,
-	TransactionItem
+	TransactionItem,
+	AuditAction,
+	AuditLogChange,
+	AuditLogEntry,
+	AuditTransactionStatus,
+	PendingRequest,
+	PendingStatus,
+	PendingTransactionType,
+	TransactionStatus
 } from '$lib/types';
+
+import { normalizeTransactionStatus } from '$lib/data/transaction-statuses';
+import { pendingAuditEntityType, pendingTransactionModule } from '$lib/data/pending';
+import { auditApi } from '$lib/api/audit';
+import { pendingApi } from '$lib/api/pending';
+import { isApiConfigured } from '$lib/api/client';
 
 import {
 	customers as initialCustomers,
@@ -53,6 +67,155 @@ import {
 	journalEntries as initialJournals,
 	appSettings as initialSettings
 } from '$lib/data/mock-data';
+
+// --- Audit Trail ---
+export const auditLogs = writable<AuditLogEntry[]>([]);
+
+// --- Pending approval history ---
+// Mirrors rows from `transaction_<type>_pending`. In live mode the backend is
+// the source of truth; in mock mode the same shape is kept locally so every
+// screen can show a complete pending history.
+export const pendingRequests = writable<PendingRequest[]>([]);
+
+export interface AuditRecordInput {
+	module: string;
+	entityType: string;
+	entityId: string;
+	documentNumber: string;
+	action: AuditAction;
+	status?: AuditTransactionStatus;
+	actor?: string;
+	summary: string;
+	/** Free-form transaction description/message copied into the audit trail. */
+	description?: string;
+	message?: string;
+	before?: Record<string, unknown> | null;
+	after?: Record<string, unknown> | null;
+	changes?: AuditLogChange[];
+	timestamp?: string;
+}
+
+function defaultStatusForAction(action: AuditAction): AuditTransactionStatus {
+	switch (action) {
+		case 'create':
+			return 'created';
+		case 'approve':
+			return 'approved';
+		case 'reject':
+		case 'void':
+			return 'rejected';
+		case 'submit':
+			return 'pending';
+		case 'reopen':
+			return 'reopen';
+		case 'post':
+		case 'close':
+		case 'export':
+		case 'delete':
+			return 'completed';
+		default:
+			return 'pending';
+	}
+}
+
+function diffRecord(
+	before: Record<string, unknown> | null | undefined,
+	after: Record<string, unknown> | null | undefined
+): AuditLogChange[] {
+	if (!before || !after) return [];
+	const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+	const changes: AuditLogChange[] = [];
+	for (const key of keys) {
+		const beforeValue = before[key];
+		const afterValue = after[key];
+		if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
+			changes.push({ field: key, before: beforeValue, after: afterValue });
+		}
+	}
+	return changes;
+}
+
+function textValue(value: unknown): string | undefined {
+	if (typeof value !== 'string') return undefined;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function sortNewestFirst(entries: AuditLogEntry[]): AuditLogEntry[] {
+	return [...entries].sort(
+		(left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+	);
+}
+
+export const auditLogActions = {
+	record(input: AuditRecordInput): AuditLogEntry {
+		const description =
+			textValue(input.description) ??
+			textValue(input.message) ??
+			textValue(input.after?.description) ??
+			textValue(input.after?.message) ??
+			input.summary;
+
+		const entry: AuditLogEntry = {
+			id: `audit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+			module: input.module,
+			entityType: input.entityType,
+			entityId: input.entityId,
+			documentNumber: input.documentNumber,
+			action: input.action,
+			status:
+				input.status ??
+				normalizeTransactionStatus(input.after?.status) ??
+				normalizeTransactionStatus(input.before?.status) ??
+				defaultStatusForAction(input.action),
+			actor: input.actor || 'System',
+			timestamp: input.timestamp || new Date().toISOString(),
+			summary: input.summary,
+			description,
+			changes: input.changes ?? diffRecord(input.before, input.after)
+		};
+
+		auditLogs.update((list) => [entry, ...list]);
+
+		if (isApiConfigured) {
+			void auditApi.create(entry).catch((error) => {
+				console.warn(`[audit] failed to persist audit entry ${entry.id}`, error);
+			});
+		}
+
+		return entry;
+	},
+
+	async load(entityType: string, entityId: string, limit = 100): Promise<void> {
+		if (!isApiConfigured || !entityType || !entityId) return;
+
+		try {
+			const result = await auditApi.list({ entityType, entityId, limit });
+			const remoteEntries = result.data ?? [];
+			if (remoteEntries.length === 0) return;
+
+			auditLogs.update((list) => {
+				const existing = new Set(list.map((entry) => entry.id));
+				const merged = [...remoteEntries.filter((entry) => !existing.has(entry.id)), ...list];
+				return sortNewestFirst(merged);
+			});
+		} catch (error) {
+			console.warn(`[audit] failed to load audit entries for ${entityType}/${entityId}`, error);
+		}
+	},
+
+	deleteForEntity(entityType: string, entityId: string) {
+		auditLogs.update((list) =>
+			list.filter((entry) => !(entry.entityType === entityType && entry.entityId === entityId))
+		);
+
+		if (isApiConfigured) {
+			void auditApi.deleteForEntity(entityType, entityId).catch((error) => {
+				console.warn(`[audit] failed to delete audit entries for ${entityType}/${entityId}`, error);
+			});
+		}
+	}
+};
 
 // --- Master Data Stores ---
 export const customers = writable<Customer[]>(initialCustomers);
@@ -147,10 +310,10 @@ export const purchaseReturns = writable<PurchaseReturn[]>([
 
 // --- Inventory ---
 export const stockMovements = writable<StockMovement[]>([
-	{ id: 'sm-001', date: '2024-04-01', docNo: 'GR/2024/001', productCode: 'PRD-101', productName: 'Steel Plate 10mm', type: 'IN', warehouse: 'Main Distribution Center', quantity: 50, unit: 'Pcs', reference: 'PO/2024/001' },
-	{ id: 'sm-002', date: '2024-04-03', docNo: 'DO/2024/001', productCode: 'PRD-101', productName: 'Steel Plate 10mm', type: 'OUT', warehouse: 'Main Distribution Center', quantity: 15, unit: 'Pcs', reference: 'SO/2024/001' },
-	{ id: 'sm-003', date: '2024-04-05', docNo: 'TR-2024-001', productCode: 'PRD-102', productName: 'Industrial Bearing 6204', type: 'TRANSFER', warehouse: 'Raw Material Warehouse', quantity: 100, unit: 'Pcs', reference: 'Rebalancing' },
-	{ id: 'sm-004', date: '2024-04-10', docNo: 'ADJ-2024-001', productCode: 'PRD-103', productName: 'Hydraulic Oil ISO VG 46', type: 'ADJUST', warehouse: 'Main Distribution Center', quantity: -2, unit: 'Drum', reference: 'Stock Count Variance' }
+	{ id: 'sm-001', date: '2024-04-01', docNo: 'GR/2024/001', productCode: 'PRD-101', productName: 'Steel Plate 10mm', type: 'IN', warehouse: 'Main Distribution Center', quantity: 50, unit: 'Pcs', reference: 'PO/2024/001', status: 'completed' },
+	{ id: 'sm-002', date: '2024-04-03', docNo: 'DO/2024/001', productCode: 'PRD-101', productName: 'Steel Plate 10mm', type: 'OUT', warehouse: 'Main Distribution Center', quantity: 15, unit: 'Pcs', reference: 'SO/2024/001', status: 'completed' },
+	{ id: 'sm-003', date: '2024-04-05', docNo: 'TR-2024-001', productCode: 'PRD-102', productName: 'Industrial Bearing 6204', type: 'TRANSFER', warehouse: 'Raw Material Warehouse', quantity: 100, unit: 'Pcs', reference: 'Rebalancing', status: 'completed' },
+	{ id: 'sm-004', date: '2024-04-10', docNo: 'ADJ-2024-001', productCode: 'PRD-103', productName: 'Hydraulic Oil ISO VG 46', type: 'ADJUST', warehouse: 'Main Distribution Center', quantity: -2, unit: 'Drum', reference: 'Stock Count Variance', status: 'completed' }
 ]);
 
 export const stockAdjustments = writable<StockAdjustment[]>([
@@ -180,7 +343,7 @@ export const expenses = writable<ExpenseEntry[]>([
 		accountCode: '6-2000', accountName: 'Freight & Courier', departmentCode: 'OPS', departmentName: 'Operations & Production',
 		budgetId: 'bud-001', budgetNo: 'BUD/2024/001', employeeId: '', employeeName: '', supplierName: 'JNE Express Logistic',
 		description: 'Emergency courier forwarding for urgent delivery order', amount: 1250000, taxAmount: 137500, totalAmount: 1387500,
-		paymentMethod: 'Petty Cash', bankAccount: 'PETTY-01', paidTo: 'JNE Express Logistic', status: 'posted',
+		paymentMethod: 'Petty Cash', bankAccount: 'PETTY-01', paidTo: 'JNE Express Logistic', status: 'completed',
 		attachmentUrl: 'jne-receipt.pdf', notes: '', submittedBy: 'Dedi Kurniawan',
 		approvedBy: 'Bambang Soepomo', postedAt: '2024-04-06', glReference: 'JE/2024/EXP/002'
 	},
@@ -198,7 +361,7 @@ export const expenses = writable<ExpenseEntry[]>([
 		accountCode: '6-1000', accountName: 'Salaries & Wages', departmentCode: 'FIN', departmentName: 'Finance & Accounting',
 		budgetId: 'bud-003', budgetNo: 'BUD/2024/003', employeeId: 'emp-002', employeeName: 'Nurul Hidayah', supplierName: '',
 		description: 'April 2024 salary - Finance & Accounting staff', amount: 12500000, taxAmount: 0, totalAmount: 12500000,
-		paymentMethod: 'Bank Transfer', bankAccount: 'BCA-001', paidTo: 'Nurul Hidayah', status: 'posted',
+		paymentMethod: 'Bank Transfer', bankAccount: 'BCA-001', paidTo: 'Nurul Hidayah', status: 'completed',
 		attachmentUrl: 'payroll-april-2024.xlsx', notes: 'Net salary after statutory deduction', submittedBy: 'Nurul Hidayah',
 		approvedBy: 'Bambang Soepomo', postedAt: '2024-04-26', glReference: 'JE/2024/PAY/004'
 	},
@@ -207,7 +370,7 @@ export const expenses = writable<ExpenseEntry[]>([
 		accountCode: '5-1000', accountName: 'Cost of Goods Sold', departmentCode: 'PUR', departmentName: 'Procurement',
 		budgetId: 'bud-001', budgetNo: 'BUD/2024/001', employeeId: '', employeeName: '', supplierName: 'PT Sinar Jaya Metalindo',
 		description: 'Additional steel plate purchase for urgent production order', amount: 32500000, taxAmount: 3575000, totalAmount: 36075000,
-		paymentMethod: 'Bank Transfer', bankAccount: 'BCA-001', paidTo: 'PT Sinar Jaya Metalindo', status: 'submitted',
+		paymentMethod: 'Bank Transfer', bankAccount: 'BCA-001', paidTo: 'PT Sinar Jaya Metalindo', status: 'pending',
 		attachmentUrl: 'po-2024-006.pdf', notes: 'Awaiting finance approval', submittedBy: 'Putri Anggraini',
 		approvedBy: '', postedAt: '', glReference: ''
 	},
@@ -216,7 +379,7 @@ export const expenses = writable<ExpenseEntry[]>([
 		accountCode: '6-1200', accountName: 'Office Supplies (ATK)', departmentCode: 'FIN', departmentName: 'Finance & Accounting',
 		budgetId: 'bud-003', budgetNo: 'BUD/2024/003', employeeId: '', employeeName: '', supplierName: 'PT Sumber ATK Nusantara',
 		description: 'Monthly office stationery restock: paper, toner, folders', amount: 2750000, taxAmount: 302500, totalAmount: 3052500,
-		paymentMethod: 'Petty Cash', bankAccount: 'PETTY-01', paidTo: 'PT Sumber ATK Nusantara', status: 'submitted',
+		paymentMethod: 'Petty Cash', bankAccount: 'PETTY-01', paidTo: 'PT Sumber ATK Nusantara', status: 'pending',
 		attachmentUrl: 'atk-invoice-april.pdf', notes: '', submittedBy: 'Nurul Hidayah',
 		approvedBy: '', postedAt: '', glReference: ''
 	},
@@ -243,7 +406,7 @@ export const expenses = writable<ExpenseEntry[]>([
 		accountCode: '6-9000', accountName: 'Other Operating Expenses', departmentCode: 'IT', departmentName: 'Information Technology',
 		budgetId: 'bud-004', budgetNo: 'BUD/2024/004', employeeId: '', employeeName: '', supplierName: 'PT Cloud Hosting Indonesia',
 		description: 'Cloud hosting and domain renewal', amount: 3400000, taxAmount: 374000, totalAmount: 3774000,
-		paymentMethod: 'Bank Transfer', bankAccount: 'BCA-001', paidTo: 'PT Cloud Hosting Indonesia', status: 'posted',
+		paymentMethod: 'Bank Transfer', bankAccount: 'BCA-001', paidTo: 'PT Cloud Hosting Indonesia', status: 'completed',
 		attachmentUrl: 'cloud-invoice.pdf', notes: '', submittedBy: 'Rizky Pratama',
 		approvedBy: 'Bambang Soepomo', postedAt: '2024-04-29', glReference: 'JE/2024/EXP/009'
 	}
@@ -260,7 +423,7 @@ export const annualBudgets = writable<AnnualBudget[]>([
 	{
 		id: 'bud-002', budgetNo: 'BUD/2024/002', fiscalYear: 2024, name: 'Sales & Marketing Budget 2024',
 		departmentCode: 'SAL', departmentName: 'Sales & Marketing', totalAmount: 480000000,
-		status: 'submitted', preparedBy: 'Rina Kusuma', approvedBy: '',
+		status: 'pending', preparedBy: 'Rina Kusuma', approvedBy: '',
 		createdAt: '2024-01-08', notes: 'Travel, promotion and customer engagement programs.'
 	},
 	{
@@ -305,23 +468,23 @@ export const budgetRevisions = writable<BudgetRevision[]>([
 ]);
 
 export const bankReconciliations = writable<BankReconciliation[]>([
-	{ id: 'rec-001', date: '2024-03-31', bankAccount: 'BCA 088-293-8472', statementBalance: 542850000, glBalance: 542850000, difference: 0, status: 'reconciled' },
-	{ id: 'rec-002', date: '2024-03-31', bankAccount: 'Mandiri 124-00-983742-1', statementBalance: 320420000, glBalance: 318420000, difference: 2000000, status: 'discrepancy' }
+	{ id: 'rec-001', date: '2024-03-31', bankAccount: 'BCA 088-293-8472', statementBalance: 542850000, glBalance: 542850000, difference: 0, status: 'completed' },
+	{ id: 'rec-002', date: '2024-03-31', bankAccount: 'Mandiri 124-00-983742-1', statementBalance: 320420000, glBalance: 318420000, difference: 2000000, status: 'reopen' }
 ]);
 
 export const purchaseInvoices = writable<PurchaseInvoice[]>([
-	{ id: 'pinv-001', date: '2024-03-05', invoiceNo: 'PI/2024/001', purchaseNo: 'PO/2024/001', supplierName: 'CV Mitra Sejahtera', dueDate: '2024-04-04', amount: 158400000, status: 'paid', preparedBy: 'Putri Anggraini' },
+	{ id: 'pinv-001', date: '2024-03-05', invoiceNo: 'PI/2024/001', purchaseNo: 'PO/2024/001', supplierName: 'CV Mitra Sejahtera', dueDate: '2024-04-04', amount: 158400000, status: 'completed', preparedBy: 'Putri Anggraini' },
 	{ id: 'pinv-002', date: '2024-03-08', invoiceNo: 'PI/2024/002', purchaseNo: 'PO/2024/002', supplierName: 'PT Sinar Jaya Metalindo', dueDate: '2024-04-15', amount: 89375000, status: 'pending', preparedBy: 'Putri Anggraini' },
-	{ id: 'pinv-003', date: '2024-03-12', invoiceNo: 'PI/2024/003', purchaseNo: 'PO/2024/003', supplierName: 'PT Global Packaging', dueDate: '2024-04-10', amount: 131780000, status: 'overdue', preparedBy: 'Putri Anggraini' },
-	{ id: 'pinv-004', date: '2024-03-18', invoiceNo: 'PI/2024/004', purchaseNo: 'PO/2024/004', supplierName: 'PT Nusantara Elektronik', dueDate: '2024-04-20', amount: 128535000, status: 'paid', preparedBy: 'Putri Anggraini' },
+	{ id: 'pinv-003', date: '2024-03-12', invoiceNo: 'PI/2024/003', purchaseNo: 'PO/2024/003', supplierName: 'PT Global Packaging', dueDate: '2024-04-10', amount: 131780000, status: 'pending', preparedBy: 'Putri Anggraini' },
+	{ id: 'pinv-004', date: '2024-03-18', invoiceNo: 'PI/2024/004', purchaseNo: 'PO/2024/004', supplierName: 'PT Nusantara Elektronik', dueDate: '2024-04-20', amount: 128535000, status: 'completed', preparedBy: 'Putri Anggraini' },
 	{ id: 'pinv-005', date: '2024-03-28', invoiceNo: 'PI/2024/005', purchaseNo: 'PO/2024/005', supplierName: 'PT Jaya Abadi Teknik', dueDate: '2024-04-30', amount: 22310000, status: 'pending', preparedBy: 'Putri Anggraini' }
 ]);
 
 export const periodClosings = writable<PeriodClosing[]>([
-	{ id: 'pc-001', period: 'January 2024', startDate: '2024-01-01', endDate: '2024-01-31', status: 'closed', closedBy: 'Bambang Soepomo', closedAt: '2024-02-03', notes: 'Monthly close completed, no adjusting entries pending.' },
-	{ id: 'pc-002', period: 'February 2024', startDate: '2024-02-01', endDate: '2024-02-29', status: 'closed', closedBy: 'Bambang Soepomo', closedAt: '2024-03-04', notes: 'Monthly close completed, bank reconciliation attached.' },
-	{ id: 'pc-003', period: 'March 2024', startDate: '2024-03-01', endDate: '2024-03-31', status: 'closed', closedBy: 'Bambang Soepomo', closedAt: '2024-04-02', notes: 'Quarterly close completed, VAT report submitted.' },
-	{ id: 'pc-004', period: 'April 2024', startDate: '2024-04-01', endDate: '2024-04-30', status: 'open', closedBy: '', closedAt: '', notes: 'Current open period.' }
+	{ id: 'pc-001', period: 'January 2024', startDate: '2024-01-01', endDate: '2024-01-31', status: 'completed', closedBy: 'Bambang Soepomo', closedAt: '2024-02-03', notes: 'Monthly close completed, no adjusting entries pending.' },
+	{ id: 'pc-002', period: 'February 2024', startDate: '2024-02-01', endDate: '2024-02-29', status: 'completed', closedBy: 'Bambang Soepomo', closedAt: '2024-03-04', notes: 'Monthly close completed, bank reconciliation attached.' },
+	{ id: 'pc-003', period: 'March 2024', startDate: '2024-03-01', endDate: '2024-03-31', status: 'completed', closedBy: 'Bambang Soepomo', closedAt: '2024-04-02', notes: 'Quarterly close completed, VAT report submitted.' },
+	{ id: 'pc-004', period: 'April 2024', startDate: '2024-04-01', endDate: '2024-04-30', status: 'pending', closedBy: '', closedAt: '', notes: 'Current open period.' }
 ]);
 
 export const journalEntries = writable<JournalEntry[]>(initialJournals);
@@ -545,7 +708,7 @@ export const quotationActions = {
 						total: q.total,
 						status: 'pending'
 					};
-					return { ...q, status: 'sales' };
+					return { ...q, status: 'completed' };
 				}
 				return q;
 			})
@@ -585,7 +748,7 @@ export const salesActions = {
 						items: [...s.items],
 						status: 'pending'
 					};
-					return { ...s, status: 'delivered' };
+					return { ...s, status: 'completed' };
 				}
 				return s;
 			})
@@ -649,9 +812,9 @@ export const purchaseActions = {
 						supplierName: p.supplierName,
 						preparedBy: authorName,
 						items: [...p.items],
-						status: 'received'
+						status: 'completed'
 					};
-					return { ...p, status: 'received' };
+					return { ...p, status: 'completed' };
 				}
 				return p;
 			})
@@ -717,10 +880,10 @@ export const billActions = {
 						invoiceNo: b.billNo,
 						amount: b.amount,
 						method,
-						status: 'paid',
+						status: 'completed',
 						preparedBy: authorName
 					};
-					return { ...b, status: 'paid' };
+					return { ...b, status: 'completed' };
 				}
 				return b;
 			})
@@ -854,7 +1017,7 @@ export const expenseActions = {
 		expenses.update((list) =>
 			list.map((e) =>
 				e.id === id
-					? { ...e, status: 'submitted', submittedBy: submittedBy || e.submittedBy }
+					? { ...e, status: 'pending', submittedBy: submittedBy || e.submittedBy }
 					: e
 			)
 		);
@@ -884,7 +1047,7 @@ export const expenseActions = {
 				e.id === id
 					? {
 							...e,
-							status: 'posted',
+							status: 'completed',
 							postedAt,
 							glReference: glReference || `JE/${new Date().getFullYear()}/EXP/${e.expenseNo.split('/').pop()}`
 						}
@@ -910,7 +1073,7 @@ export const budgetingActions = {
 	},
 	submitBudget(id: string) {
 		annualBudgets.update((list) =>
-			list.map((b) => (b.id === id ? { ...b, status: 'submitted' } : b))
+			list.map((b) => (b.id === id ? { ...b, status: 'pending' } : b))
 		);
 	},
 	approveBudget(id: string, approvedBy = '') {
@@ -929,7 +1092,7 @@ export const budgetingActions = {
 	},
 	closeBudget(id: string) {
 		annualBudgets.update((list) =>
-			list.map((b) => (b.id === id ? { ...b, status: 'closed' } : b))
+			list.map((b) => (b.id === id ? { ...b, status: 'completed' } : b))
 		);
 	},
 	addAllocation(item: Omit<BudgetAllocation, 'id'>) {
@@ -986,7 +1149,7 @@ export const bankReconciliationActions = {
 		bankReconciliations.update((list) =>
 			list.map((r) =>
 				r.id === id
-					? { ...r, status: 'reconciled', glBalance: r.statementBalance, difference: 0 }
+					? { ...r, status: 'completed', glBalance: r.statementBalance, difference: 0 }
 					: r
 			)
 		);
@@ -1020,7 +1183,7 @@ export const purchaseInvoiceActions = {
 		purchaseInvoices.update((list) => list.filter((i) => i.id !== id));
 	},
 	markPaid(id: string) {
-		purchaseInvoices.update((list) => list.map((i) => (i.id === id ? { ...i, status: 'paid' } : i)));
+		purchaseInvoices.update((list) => list.map((i) => (i.id === id ? { ...i, status: 'completed' } : i)));
 	}
 };
 
@@ -1042,7 +1205,7 @@ export const periodClosingActions = {
 				p.id === id
 					? {
 							...p,
-							status: 'closed',
+							status: 'completed',
 							closedBy,
 							closedAt: new Date().toISOString().split('T')[0]
 						}
@@ -1058,6 +1221,236 @@ export const alertActions = {
 	},
 	markAsRead(id: string) {
 		systemAlerts.update((list) => list.map((a) => (a.id === id ? { ...a, read: true } : a)));
+	}
+};
+
+// --- Pending Approval Actions ---
+export interface CreatePendingRequestInput {
+	transactionType: PendingTransactionType;
+	transactionId: string;
+	transactionNumber: string;
+	requestedBy: string;
+	pendingMessage: string;
+	actorRole?: string;
+}
+
+export interface PendingDecisionInput {
+	actor: string;
+	actorRole: string;
+	decisionMessage: string;
+}
+
+function updateTransactionStatus<T extends { id: string; status: TransactionStatus }>(
+	store: Writable<T[]>,
+	id: string,
+	status: TransactionStatus
+) {
+	store.update((list) => list.map((item) => (item.id === id ? { ...item, status } : item)));
+}
+
+/**
+ * Update the transaction status in the correct local store after a pending
+ * request or decision. Keeping this mapping in one place prevents each detail
+ * page from implementing its own status transition.
+ */
+export function setTransactionStatus(
+	transactionType: PendingTransactionType,
+	id: string,
+	status: TransactionStatus
+) {
+	switch (transactionType) {
+		case 'quotation':
+			updateTransactionStatus(quotations, id, status);
+			break;
+		case 'sales_order':
+			updateTransactionStatus(salesOrders, id, status);
+			break;
+		case 'purchase_order':
+			updateTransactionStatus(purchaseOrders, id, status);
+			break;
+		case 'delivery_order':
+			updateTransactionStatus(deliveries, id, status);
+			break;
+		case 'goods_receipt':
+			updateTransactionStatus(goodsReceipts, id, status);
+			break;
+		case 'sales_invoice':
+			updateTransactionStatus(billPayments, id, status);
+			break;
+		case 'customer_receipt':
+			updateTransactionStatus(payments, id, status);
+			break;
+		case 'vendor_payment':
+		case 'debt_payment':
+			updateTransactionStatus(debtPayments, id, status);
+			break;
+		case 'purchase_invoice':
+			updateTransactionStatus(purchaseInvoices, id, status);
+			break;
+		case 'sales_return':
+			updateTransactionStatus(salesReturns, id, status);
+			break;
+		case 'purchase_return':
+			updateTransactionStatus(purchaseReturns, id, status);
+			break;
+		case 'stock_movement':
+			updateTransactionStatus(stockMovements, id, status);
+			break;
+		case 'stock_adjustment':
+			updateTransactionStatus(stockAdjustments, id, status);
+			break;
+		case 'annual_budget':
+			updateTransactionStatus(annualBudgets, id, status);
+			break;
+		case 'budget_revision':
+			updateTransactionStatus(budgetRevisions, id, status);
+			break;
+		case 'expense':
+			updateTransactionStatus(expenses, id, status);
+			break;
+		case 'journal_entry':
+			updateTransactionStatus(journalEntries, id, status);
+			break;
+		case 'bank_reconciliation':
+			updateTransactionStatus(bankReconciliations, id, status);
+			break;
+		case 'period_closing':
+			updateTransactionStatus(periodClosings, id, status);
+			break;
+	}
+}
+
+function sortPendingRequests(requests: PendingRequest[]): PendingRequest[] {
+	return [...requests].sort(
+		(left, right) => new Date(right.requestedAt).getTime() - new Date(left.requestedAt).getTime()
+	);
+}
+
+function upsertPendingRequest(entry: PendingRequest) {
+	pendingRequests.update((list) =>
+		sortPendingRequests([entry, ...list.filter((item) => item.id !== entry.id)])
+	);
+}
+
+export const pendingActions = {
+	async load(transactionType: PendingTransactionType, transactionId: string): Promise<void> {
+		if (!isApiConfigured || !transactionType || !transactionId) return;
+
+		try {
+			const result = await pendingApi.list({ transactionType, transactionId, limit: 100 });
+			const remote = result.data ?? [];
+			pendingRequests.update((list) => {
+				const others = list.filter(
+					(item) =>
+						!(item.transactionType === transactionType && item.transactionId === transactionId)
+				);
+				return sortPendingRequests([...remote, ...others]);
+			});
+		} catch (error) {
+			console.warn(
+				`[pending] failed to load pending history for ${transactionType}/${transactionId}`,
+				error
+			);
+		}
+	},
+
+	async request(input: CreatePendingRequestInput): Promise<PendingRequest> {
+		let entry: PendingRequest;
+
+		if (isApiConfigured) {
+			const result = await pendingApi.create({
+				...input,
+				actorRole: input.actorRole ?? ''
+			});
+			entry = result.data;
+		} else {
+			const now = new Date().toISOString();
+			entry = {
+				id: `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+				transactionType: input.transactionType,
+				transactionId: input.transactionId,
+				transactionNumber: input.transactionNumber || input.transactionId,
+				status: 'pending',
+				requestedAt: now,
+				requestedBy: input.requestedBy,
+				pendingMessage: input.pendingMessage,
+				approvalMessage: '',
+				rejectionMessage: '',
+				createdAt: now,
+				updatedAt: now
+			};
+		}
+
+		upsertPendingRequest(entry);
+		setTransactionStatus(input.transactionType, input.transactionId, 'pending');
+		auditLogActions.record({
+			module: pendingTransactionModule(input.transactionType),
+			entityType: pendingAuditEntityType(input.transactionType),
+			entityId: input.transactionId,
+			documentNumber: input.transactionNumber || input.transactionId,
+			action: 'submit',
+			status: 'pending',
+			actor: input.requestedBy,
+			summary: `Requested pending approval for ${input.transactionNumber || input.transactionId}.`,
+			description: input.pendingMessage,
+			changes: [{ field: 'status', before: null, after: 'pending' }]
+		});
+
+		return entry;
+	},
+
+	async decide(
+		entry: PendingRequest,
+		decision: 'approve' | 'reject',
+		input: PendingDecisionInput
+	): Promise<PendingRequest> {
+		let decided: PendingRequest;
+
+		if (isApiConfigured) {
+			const result =
+				decision === 'approve'
+					? await pendingApi.approve(entry.transactionType, entry.id, input)
+					: await pendingApi.reject(entry.transactionType, entry.id, input);
+			decided = result.data;
+		} else {
+			const now = new Date().toISOString();
+			decided =
+				decision === 'approve'
+					? {
+							...entry,
+							status: 'approved',
+							approvedAt: now,
+							approvedBy: input.actor,
+							approvalMessage: input.decisionMessage,
+							updatedAt: now
+						}
+					: {
+							...entry,
+							status: 'rejected',
+							rejectedAt: now,
+							rejectedBy: input.actor,
+							rejectionMessage: input.decisionMessage,
+							updatedAt: now
+						};
+		}
+
+		const nextStatus: PendingStatus = decision === 'approve' ? 'approved' : 'rejected';
+		upsertPendingRequest(decided);
+		setTransactionStatus(entry.transactionType, entry.transactionId, nextStatus);
+		auditLogActions.record({
+			module: pendingTransactionModule(entry.transactionType),
+			entityType: pendingAuditEntityType(entry.transactionType),
+			entityId: entry.transactionId,
+			documentNumber: entry.transactionNumber,
+			action: decision === 'approve' ? 'approve' : 'reject',
+			status: nextStatus,
+			actor: input.actor,
+			summary: `${decision === 'approve' ? 'Approved' : 'Rejected'} pending request for ${entry.transactionNumber}.`,
+			description: input.decisionMessage,
+			changes: [{ field: 'status', before: 'pending', after: nextStatus }]
+		});
+
+		return decided;
 	}
 };
 

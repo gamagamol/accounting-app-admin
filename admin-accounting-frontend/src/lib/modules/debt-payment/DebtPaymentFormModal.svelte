@@ -62,7 +62,7 @@
         purchaseNo,
         amount,
         method,
-        status: 'paid',
+        status: 'completed',
         preparedBy: 'Finance Dept'
       });
     }

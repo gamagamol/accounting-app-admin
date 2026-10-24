@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import PurchaseFormModal from './PurchaseFormModal.svelte';
-	import PurchaseDetailModal from './PurchaseDetailModal.svelte';
-	import { purchaseOrders, purchaseActions } from '$lib/stores/dataStore';
+	import { purchaseOrders, purchaseActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
 	import type { PurchaseOrder, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedPurchase: PurchaseOrder | null = null;
-	let purchaseToEdit: PurchaseOrder | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'purchaseNo', label: 'PO No', sortable: true },
@@ -25,24 +20,30 @@
 	];
 
 	function openCreate() {
-		purchaseToEdit = null;
-		isFormOpen = true;
+		goto('/purchase/new');
 	}
 
 	function openEdit(item: PurchaseOrder) {
-		purchaseToEdit = item;
-		isFormOpen = true;
+		goto(`/purchase/${item.id}/edit`);
 	}
 
 	function openDetail(item: PurchaseOrder) {
-		selectedPurchase = item;
-		isDetailOpen = true;
+		goto(`/purchase/${item.id}`);
 	}
 
 	function handleDelete(item: PurchaseOrder) {
-		if (confirm(`Delete purchase order ${item.purchaseNo}? This action cannot be undone.`)) {
-			purchaseActions.delete(item.id);
-		}
+		if (!confirm(`Delete purchase order ${item.purchaseNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'purchase',
+			entityType: 'purchase_order',
+			entityId: item.id,
+			documentNumber: item.purchaseNo,
+			action: 'delete',
+			actor: $user?.name || 'Purchasing Staff',
+			summary: `Deleted purchase order ${item.purchaseNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		purchaseActions.delete(item.id);
 	}
 </script>
 
@@ -74,7 +75,7 @@
 			{:else if column.key === 'status'}
 				<Badge
 					status={value}
-					label={value === 'pending' ? 'Pending' : value === 'received' ? 'Received' : 'Completed'}
+					label={value === 'pending' ? 'Pending' : value === 'completed' ? 'Received' : 'Completed'}
 				/>
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
@@ -92,7 +93,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<PurchaseFormModal bind:isOpen={isFormOpen} {purchaseToEdit} />
-	<PurchaseDetailModal bind:isOpen={isDetailOpen} purchase={selectedPurchase} />
 </div>

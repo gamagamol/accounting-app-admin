@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import BillFormModal from './BillFormModal.svelte';
-	import BillDetailModal from './BillDetailModal.svelte';
-	import { billPayments, billActions } from '$lib/stores/dataStore';
+	import { billPayments, billActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
 	import type { BillPayment, TableColumn } from '$lib/types';
-
-	let isFormOpen = false;
-	let isDetailOpen = false;
-	let selectedBill: BillPayment | null = null;
-	let billToEdit: BillPayment | null = null;
 
 	const columns: TableColumn[] = [
 		{ key: 'billNo', label: 'Invoice No', sortable: true },
@@ -26,24 +21,30 @@
 	];
 
 	function openCreate() {
-		billToEdit = null;
-		isFormOpen = true;
+		goto('/sales-invoice/new');
 	}
 
 	function openEdit(item: BillPayment) {
-		billToEdit = item;
-		isFormOpen = true;
+		goto(`/sales-invoice/${item.id}/edit`);
 	}
 
 	function openDetail(item: BillPayment) {
-		selectedBill = item;
-		isDetailOpen = true;
+		goto(`/sales-invoice/${item.id}`);
 	}
 
 	function handleDelete(item: BillPayment) {
-		if (confirm(`Delete invoice ${item.billNo}? This action cannot be undone.`)) {
-			billActions.delete(item.id);
-		}
+		if (!confirm(`Delete invoice ${item.billNo}? This action cannot be undone.`)) return;
+		auditLogActions.record({
+			module: 'sales',
+			entityType: 'sales_invoice',
+			entityId: item.id,
+			documentNumber: item.billNo,
+			action: 'delete',
+			actor: $user?.name || 'Finance Team',
+			summary: `Deleted sales invoice ${item.billNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		billActions.delete(item.id);
 	}
 </script>
 
@@ -77,7 +78,7 @@
 					{value}
 				</span>
 			{:else if column.key === 'status'}
-				<Badge status={value} label={value === 'paid' ? 'Paid' : 'Unpaid'} />
+				<Badge status={value} />
 			{:else}
 				{column.format ? column.format(value, row) : value ?? '-'}
 			{/if}
@@ -94,7 +95,4 @@
 			/>
 		</svelte:fragment>
 	</DataTable>
-
-	<BillFormModal bind:isOpen={isFormOpen} {billToEdit} />
-	<BillDetailModal bind:isOpen={isDetailOpen} bill={selectedBill} />
 </div>

@@ -4,7 +4,8 @@
   import FormField from '$lib/components/ui/FormField.svelte';
   import { salesOrders, billActions } from '$lib/stores/dataStore';
   import { formatCurrency } from '$lib/utils/formatters';
-  import type { BillPayment } from '$lib/types';
+  import { transactionStatusOptions } from '$lib/data/transaction-statuses';
+  import type { BillPayment, TransactionStatus } from '$lib/types';
 
   export let isOpen: boolean = false;
   export let billToEdit: BillPayment | null = null;
@@ -14,7 +15,7 @@
   let customerName = '';
   let amount = 0;
   let method: 'cash' | 'transfer' | 'check' = 'transfer';
-  let status: 'pending' | 'paid' = 'pending';
+  let status: TransactionStatus = 'pending';
 
   $: if (isOpen) {
     if (billToEdit) {
@@ -144,8 +145,9 @@
           bind:value={status}
           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
         >
-          <option value="pending">Unpaid (Outstanding)</option>
-          <option value="paid">Paid</option>
+          {#each transactionStatusOptions as option}
+            <option value={option.value}>{option.label}</option>
+          {/each}
         </select>
       </FormField>
     </div>

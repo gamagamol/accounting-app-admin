@@ -1,13 +1,13 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import FilterSelect from '$lib/components/ui/FilterSelect.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import ExpenseFormModal from './ExpenseFormModal.svelte';
-	import ExpenseDetailModal from './ExpenseDetailModal.svelte';
-	import { expenses, expenseActions } from '$lib/stores/dataStore';
+	import { expenses, expenseActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
 	import { expensesApi } from '$lib/api';
 	import {
 		expenseStatusOptions,
@@ -20,10 +20,6 @@
 	import { getErrorMessage } from '$lib/utils/errors';
 	import type { ExpenseEntry, ExpenseType, TableColumn } from '$lib/types';
 
-	let isFormOpen = false;
-	let editingExpense: ExpenseEntry | null = null;
-	let isDetailOpen = false;
-	let detailExpense: ExpenseEntry | null = null;
 	let typeFilter = 'all';
 	let statusFilter = 'all';
 
@@ -84,24 +80,31 @@
 	});
 
 	function openCreate() {
-		editingExpense = null;
-		isFormOpen = true;
+		goto('/expenses/new');
 	}
 
 	function openEdit(expense: ExpenseEntry) {
-		editingExpense = expense;
-		isFormOpen = true;
+		goto(`/expenses/${expense.id}/edit`);
 	}
 
 	function openDetail(expense: ExpenseEntry) {
-		detailExpense = expense;
-		isDetailOpen = true;
+		goto(`/expenses/${expense.id}`);
 	}
 
 	async function deleteExpense(expense: ExpenseEntry) {
 		if (!confirm(`Delete expense "${expense.expenseNo}"? This action cannot be undone.`)) return;
 		try {
 			await expensesApi.delete(expense.id);
+			auditLogActions.record({
+				module: 'budgeting',
+				entityType: 'expense_entry',
+				entityId: expense.id,
+				documentNumber: expense.expenseNo,
+				action: 'delete',
+				actor: $user?.name || 'Expense Owner',
+				summary: `Deleted expense ${expense.expenseNo}.`,
+				before: expense as unknown as Record<string, unknown>
+			});
 			expenseActions.delete(expense.id);
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to delete expense.'));
@@ -194,6 +197,3 @@
 		</svelte:fragment>
 	</DataTable>
 </div>
-
-<ExpenseFormModal bind:isOpen={isFormOpen} expense={editingExpense} />
-<ExpenseDetailModal bind:isOpen={isDetailOpen} expense={detailExpense} />

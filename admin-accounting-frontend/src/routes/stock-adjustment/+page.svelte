@@ -1,7 +1,8 @@
 <script lang="ts">
 	import EntityManager from '$lib/components/ui/EntityManager.svelte';
-	import type { FieldDef } from '$lib/types/entity';
-	import { stockAdjustments, inventoryActions } from '$lib/stores/dataStore';
+	import { stockAdjustments, inventoryActions, auditLogActions } from '$lib/stores/dataStore';
+	import { user } from '$lib/stores/auth';
+	import { stockAdjustmentFields } from '$lib/modules/inventory/fields';
 	import { formatDate } from '$lib/utils/formatters';
 	import type { TableColumn } from '$lib/types';
 
@@ -16,31 +17,20 @@
 		{ key: 'status', label: 'Status', align: 'center' }
 	];
 
-	const fields: FieldDef[] = [
-		{ key: 'date', label: 'Adjustment Date', type: 'date', required: true },
-		{ key: 'adjustmentNo', label: 'Adjustment No', type: 'text', required: true, placeholder: 'ADJ/2024/001' },
-		{ key: 'warehouse', label: 'Warehouse', type: 'text' },
-		{ key: 'productName', label: 'Product Name', type: 'text', required: true },
-		{ key: 'systemQty', label: 'System Quantity', type: 'number' },
-		{ key: 'actualQty', label: 'Actual Quantity', type: 'number' },
-		{ key: 'diffQty', label: 'Difference', type: 'number' },
-		{
-			key: 'status',
-			label: 'Status',
-			type: 'select',
-			badge: true,
-			badgeLabels: { pending: 'Pending', approved: 'Approved' },
-			options: [
-				{ value: 'pending', label: 'Pending' },
-				{ value: 'approved', label: 'Approved' }
-			]
-		},
-		{ key: 'reason', label: 'Adjustment Reason', type: 'textarea', colSpan: 'full' }
-	];
-
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) inventoryActions.updateAdjustment(id, payload);
-		else inventoryActions.addAdjustment(payload as any);
+	function handleDelete(id: string) {
+		const item = $stockAdjustments.find((adjustment) => adjustment.id === id);
+		if (!item) return;
+		auditLogActions.record({
+			module: 'inventory',
+			entityType: 'stock_adjustment',
+			entityId: item.id,
+			documentNumber: item.adjustmentNo,
+			action: 'delete',
+			actor: $user?.name || 'Warehouse Team',
+			summary: `Deleted stock adjustment ${item.adjustmentNo}.`,
+			before: item as unknown as Record<string, unknown>
+		});
+		inventoryActions.deleteAdjustment(id);
 	}
 </script>
 
@@ -49,12 +39,14 @@
 	description="Record physical count variances and reconcile system stock against actual warehouse stock."
 	entityName="stock adjustment"
 	{columns}
-	{fields}
+	fields={stockAdjustmentFields}
 	data={$stockAdjustments}
 	searchKeys={['adjustmentNo', 'warehouse', 'productName', 'reason', 'status']}
 	searchPlaceholder="Search stock adjustments..."
 	createLabel="Add Adjustment"
 	displayKey="adjustmentNo"
-	onSave={handleSave}
-	onDelete={(id) => inventoryActions.deleteAdjustment(id)}
+	createHref="/stock-adjustment/new"
+	viewHref={(row) => `/stock-adjustment/${row.id}`}
+	editHref={(row) => `/stock-adjustment/${row.id}/edit`}
+	onDelete={handleDelete}
 />

@@ -14,7 +14,8 @@
 		{ key: 'amount', label: 'Amount (IDR)', align: 'right', sortable: true, format: (v) => formatCurrency(v) }
 	];
 
-	$: totalJournalAmount = $journalEntries.reduce((s, j) => s + j.amount, 0);
+	$: completedJournals = $journalEntries.filter((entry) => entry.status === 'completed');
+	$: totalJournalAmount = completedJournals.reduce((s, j) => s + j.amount, 0);
 </script>
 
 <div class="space-y-6">
@@ -45,7 +46,7 @@
 
 	<DataTable
 		{columns}
-		data={$journalEntries}
+		data={completedJournals}
 		searchPlaceholder="Search journals by description, account, or reference number..."
 		searchKeys={['description', 'reference', 'debitAccount', 'creditAccount']}
 	>

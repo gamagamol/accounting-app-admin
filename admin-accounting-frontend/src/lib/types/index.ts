@@ -148,8 +148,32 @@ export interface TransactionItem {
 	total: number;
 }
 
+/**
+ * Common free-form metadata carried by every business transaction.
+ * `description` (or its `message` alias) is copied into the audit trail so
+ * reviewers can see why a transaction was created, changed, or reopened.
+ */
+export interface TransactionMetadata {
+	description?: string;
+	message?: string;
+}
+
+/**
+ * Canonical workflow status for every business transaction.
+ * A reopened transaction is allowed to be edited again, but the change must
+ * be recorded in the audit trail.
+ */
+export type TransactionStatus =
+	| 'draft'
+	| 'created'
+	| 'approved'
+	| 'rejected'
+	| 'pending'
+	| 'completed'
+	| 'reopen';
+
 // Quotation
-export interface Quotation {
+export interface Quotation extends TransactionMetadata {
 	id: string;
 	date: string;
 	quotationNo: string;
@@ -158,7 +182,7 @@ export interface Quotation {
 	customerName: string;
 	preparedBy: string;
 	salesPerson: string;
-	status: 'quotation' | 'sales' | 'completed';
+	status: TransactionStatus;
 	items: TransactionItem[];
 	subtotal: number;
 	tax: number;
@@ -167,7 +191,7 @@ export interface Quotation {
 }
 
 // Sales Order
-export interface SalesOrder {
+export interface SalesOrder extends TransactionMetadata {
 	id: string;
 	date: string;
 	salesNo: string;
@@ -179,11 +203,11 @@ export interface SalesOrder {
 	subtotal: number;
 	tax: number;
 	total: number;
-	status: 'pending' | 'delivered' | 'completed';
+	status: TransactionStatus;
 }
 
 // Purchase Order
-export interface PurchaseOrder {
+export interface PurchaseOrder extends TransactionMetadata {
 	id: string;
 	date: string;
 	purchaseNo: string;
@@ -195,11 +219,11 @@ export interface PurchaseOrder {
 	subtotal: number;
 	tax: number;
 	total: number;
-	status: 'pending' | 'received' | 'completed';
+	status: TransactionStatus;
 }
 
 // Delivery Order
-export interface Delivery {
+export interface Delivery extends TransactionMetadata {
 	id: string;
 	date: string;
 	deliveryNo: string;
@@ -208,11 +232,11 @@ export interface Delivery {
 	customerName: string;
 	preparedBy: string;
 	items: TransactionItem[];
-	status: 'pending' | 'shipped' | 'delivered';
+	status: TransactionStatus;
 }
 
 // Goods Receipt
-export interface GoodsReceipt {
+export interface GoodsReceipt extends TransactionMetadata {
 	id: string;
 	date: string;
 	receiptNo: string;
@@ -221,11 +245,11 @@ export interface GoodsReceipt {
 	supplierName: string;
 	preparedBy: string;
 	items: TransactionItem[];
-	status: 'pending' | 'received';
+	status: TransactionStatus;
 }
 
 // Bill Payment (Sales Invoice)
-export interface BillPayment {
+export interface BillPayment extends TransactionMetadata {
 	id: string;
 	date: string;
 	billNo: string;
@@ -234,12 +258,12 @@ export interface BillPayment {
 	invoiceNo: string;
 	amount: number;
 	method: 'cash' | 'transfer' | 'check';
-	status: 'pending' | 'paid';
+	status: TransactionStatus;
 	preparedBy: string;
 }
 
 // Customer Receipt / Payment
-export interface Payment {
+export interface Payment extends TransactionMetadata {
 	id: string;
 	date: string;
 	paymentNo: string;
@@ -248,12 +272,12 @@ export interface Payment {
 	invoiceNo: string;
 	amount: number;
 	method: 'cash' | 'transfer' | 'check';
-	status: 'pending' | 'paid';
+	status: TransactionStatus;
 	preparedBy: string;
 }
 
 // Vendor Payment / Debt Payment
-export interface DebtPayment {
+export interface DebtPayment extends TransactionMetadata {
 	id: string;
 	date: string;
 	paymentNo: string;
@@ -262,12 +286,12 @@ export interface DebtPayment {
 	purchaseNo: string;
 	amount: number;
 	method: 'cash' | 'transfer' | 'check';
-	status: 'pending' | 'paid';
+	status: TransactionStatus;
 	preparedBy: string;
 }
 
 // Purchase Invoice (vendor invoice)
-export interface PurchaseInvoice {
+export interface PurchaseInvoice extends TransactionMetadata {
 	id: string;
 	date: string;
 	invoiceNo: string;
@@ -275,24 +299,24 @@ export interface PurchaseInvoice {
 	supplierName: string;
 	dueDate: string;
 	amount: number;
-	status: 'pending' | 'paid' | 'overdue';
+	status: TransactionStatus;
 	preparedBy: string;
 }
 
 // Period Closing
-export interface PeriodClosing {
+export interface PeriodClosing extends TransactionMetadata {
 	id: string;
 	period: string;
 	startDate: string;
 	endDate: string;
-	status: 'open' | 'closed';
+	status: TransactionStatus;
 	closedBy: string;
 	closedAt: string;
 	notes: string;
 }
 
 // Sales Return / Credit Note
-export interface SalesReturn {
+export interface SalesReturn extends TransactionMetadata {
 	id: string;
 	returnNo: string;
 	date: string;
@@ -300,11 +324,11 @@ export interface SalesReturn {
 	customerName: string;
 	reason: string;
 	total: number;
-	status: 'pending' | 'approved' | 'completed';
+	status: TransactionStatus;
 }
 
 // Purchase Return / Debit Note
-export interface PurchaseReturn {
+export interface PurchaseReturn extends TransactionMetadata {
 	id: string;
 	returnNo: string;
 	date: string;
@@ -312,11 +336,11 @@ export interface PurchaseReturn {
 	supplierName: string;
 	reason: string;
 	total: number;
-	status: 'pending' | 'approved' | 'completed';
+	status: TransactionStatus;
 }
 
 // Inventory Movements
-export interface StockMovement {
+export interface StockMovement extends TransactionMetadata {
 	id: string;
 	date: string;
 	docNo: string;
@@ -327,10 +351,11 @@ export interface StockMovement {
 	quantity: number;
 	unit: string;
 	reference: string;
+	status: TransactionStatus;
 }
 
 // Stock Adjustment
-export interface StockAdjustment {
+export interface StockAdjustment extends TransactionMetadata {
 	id: string;
 	date: string;
 	adjustmentNo: string;
@@ -340,7 +365,7 @@ export interface StockAdjustment {
 	actualQty: number;
 	diffQty: number;
 	reason: string;
-	status: 'pending' | 'approved';
+	status: TransactionStatus;
 }
 
 // Product Account Mapping
@@ -364,9 +389,9 @@ export type ExpenseType =
 	| 'travel'
 	| 'other';
 
-export type ExpenseStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'posted';
+export type ExpenseStatus = TransactionStatus;
 
-export interface ExpenseEntry {
+export interface ExpenseEntry extends TransactionMetadata {
 	id: string;
 	date: string;
 	expenseNo: string;
@@ -398,9 +423,9 @@ export interface ExpenseEntry {
 }
 
 // --- Budgeting ---
-export type BudgetStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'revised' | 'closed';
+export type BudgetStatus = TransactionStatus;
 
-export interface AnnualBudget {
+export interface AnnualBudget extends TransactionMetadata {
 	id: string;
 	budgetNo: string;
 	fiscalYear: number;
@@ -415,7 +440,7 @@ export interface AnnualBudget {
 	notes: string;
 }
 
-export interface BudgetAllocation {
+export interface BudgetAllocation extends TransactionMetadata {
 	id: string;
 	budgetId: string;
 	budgetNo: string;
@@ -429,7 +454,7 @@ export interface BudgetAllocation {
 	notes: string;
 }
 
-export interface BudgetRevision {
+export interface BudgetRevision extends TransactionMetadata {
 	id: string;
 	revisionNo: string;
 	budgetId: string;
@@ -440,22 +465,22 @@ export interface BudgetRevision {
 	requestedAmount: number;
 	difference: number;
 	reason: string;
-	status: 'pending' | 'approved' | 'rejected';
+	status: TransactionStatus;
 }
 
 // Bank Reconciliation
-export interface BankReconciliation {
+export interface BankReconciliation extends TransactionMetadata {
 	id: string;
 	date: string;
 	bankAccount: string;
 	statementBalance: number;
 	glBalance: number;
 	difference: number;
-	status: 'reconciled' | 'discrepancy';
+	status: TransactionStatus;
 }
 
 // Manual Journal Entry
-export interface JournalEntry {
+export interface JournalEntry extends TransactionMetadata {
 	id: string;
 	date: string;
 	description: string;
@@ -463,6 +488,7 @@ export interface JournalEntry {
 	creditAccount: string;
 	amount: number;
 	reference: string;
+	status: TransactionStatus;
 }
 
 // General Ledger Entry
@@ -539,4 +565,91 @@ export interface AppSettings {
 	companyNpwp: string;
 	currency: string;
 	taxRate: number;
+}
+
+// Audit trail
+export type AuditAction =
+	| 'create'
+	| 'update'
+	| 'delete'
+	| 'submit'
+	| 'approve'
+	| 'reject'
+	| 'post'
+	| 'void'
+	| 'close'
+	| 'reopen'
+	| 'export';
+
+export type AuditTransactionStatus = TransactionStatus;
+
+export interface AuditLogChange {
+	field: string;
+	before: unknown;
+	after: unknown;
+}
+
+export interface AuditLogEntry {
+	id: string;
+	module: string;
+	entityType: string;
+	entityId: string;
+	documentNumber: string;
+	action: AuditAction;
+	status: AuditTransactionStatus;
+	actor: string;
+	timestamp: string;
+	summary: string;
+	description?: string;
+	message?: string;
+	changes?: AuditLogChange[];
+}
+
+// --- Pending approval workflow ---
+export type PendingTransactionType =
+	| 'quotation'
+	| 'sales_order'
+	| 'purchase_order'
+	| 'delivery_order'
+	| 'goods_receipt'
+	| 'sales_invoice'
+	| 'customer_receipt'
+	| 'vendor_payment'
+	| 'debt_payment'
+	| 'purchase_invoice'
+	| 'sales_return'
+	| 'purchase_return'
+	| 'stock_movement'
+	| 'stock_adjustment'
+	| 'annual_budget'
+	| 'budget_revision'
+	| 'expense'
+	| 'journal_entry'
+	| 'bank_reconciliation'
+	| 'period_closing';
+
+export type PendingStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * One row from a `transaction_<type>_pending` PostgreSQL table.
+ * The pending, approval, and rejection messages are stored separately so the
+ * history can show who asked for approval and who decided it, and why.
+ */
+export interface PendingRequest {
+	id: string;
+	transactionType: PendingTransactionType;
+	transactionId: string;
+	transactionNumber: string;
+	status: PendingStatus;
+	requestedAt: string;
+	requestedBy: string;
+	pendingMessage: string;
+	approvedAt?: string;
+	approvedBy?: string;
+	approvalMessage: string;
+	rejectedAt?: string;
+	rejectedBy?: string;
+	rejectionMessage: string;
+	createdAt: string;
+	updatedAt: string;
 }

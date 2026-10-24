@@ -24,7 +24,7 @@
           <p class="text-xs text-gray-600 font-mono">No. Invoice: {payment.invoiceNo}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Badge status="paid" label="PAID" />
+          <Badge status="completed" />
           <Button size="sm" variant="secondary" on:click={() => (isPrintOpen = true)}>
             🖨️ Print Receipt
           </Button>

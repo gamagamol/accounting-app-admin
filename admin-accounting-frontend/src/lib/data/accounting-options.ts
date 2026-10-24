@@ -1,4 +1,5 @@
-import type { ExpenseStatus, ExpenseType } from '$lib/types';
+import type { ExpenseStatus, ExpenseType, TransactionStatus } from '$lib/types';
+import { transactionStatusOptions } from './transaction-statuses';
 
 export interface ExpenseTypeOption {
 	value: ExpenseType;
@@ -80,28 +81,14 @@ export const expenseTypeMap = Object.fromEntries(
 	expenseTypeOptions.map((option) => [option.value, option])
 ) as Record<ExpenseType, ExpenseTypeOption>;
 
-export const expenseStatusOptions: { value: ExpenseStatus; label: string }[] = [
-	{ value: 'draft', label: 'Draft' },
-	{ value: 'submitted', label: 'Submitted' },
-	{ value: 'approved', label: 'Approved' },
-	{ value: 'rejected', label: 'Rejected' },
-	{ value: 'posted', label: 'Posted to GL' }
-];
+export const expenseStatusOptions: { value: ExpenseStatus; label: string }[] =
+	transactionStatusOptions;
 
-export const budgetStatusOptions = [
-	{ value: 'draft', label: 'Draft' },
-	{ value: 'submitted', label: 'Submitted' },
-	{ value: 'approved', label: 'Approved' },
-	{ value: 'rejected', label: 'Rejected' },
-	{ value: 'revised', label: 'Revised' },
-	{ value: 'closed', label: 'Closed' }
-];
+export const budgetStatusOptions: { value: TransactionStatus; label: string }[] =
+	transactionStatusOptions;
 
-export const budgetRevisionStatusOptions = [
-	{ value: 'pending', label: 'Pending' },
-	{ value: 'approved', label: 'Approved' },
-	{ value: 'rejected', label: 'Rejected' }
-];
+export const budgetRevisionStatusOptions: { value: TransactionStatus; label: string }[] =
+	transactionStatusOptions;
 
 export const paymentMethodOptions = [
 	{ value: 'Bank Transfer', label: 'Bank Transfer' },

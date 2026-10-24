@@ -10,9 +10,11 @@ use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 
+use crate::app::audit::handler::AuditHandler;
 use crate::app::container::Container;
 use crate::app::middleware;
 use crate::app::modules;
+use crate::app::pending::handler::PendingHandler;
 use crate::app::routes::{Handlers, Routes};
 use crate::app::user::handler::UserHandler;
 use crate::config::Config;
@@ -20,8 +22,20 @@ use crate::pkg::response::ApiResponse;
 
 /// Builds the HTTP application. It is public so integration tests can use
 /// `tower::ServiceExt::oneshot` without binding a real port.
-pub fn build_app(config: Arc<Config>, user_handler: Arc<UserHandler>) -> Router {
-    let api = Routes::setup(Router::new(), Handlers { user: user_handler });
+pub fn build_app(
+    config: Arc<Config>,
+    user_handler: Arc<UserHandler>,
+    audit_handler: Arc<AuditHandler>,
+    pending_handler: Arc<PendingHandler>,
+) -> Router {
+    let api = Routes::setup(
+        Router::new(),
+        Handlers {
+            user: user_handler,
+            audit: audit_handler,
+            pending: pending_handler,
+        },
+    );
 
     let health_config = config.clone();
     let health = Router::new().route(
@@ -36,6 +50,7 @@ pub fn build_app(config: Arc<Config>, user_handler: Arc<UserHandler>) -> Router 
                         "env": config.app_env,
                         "database": config.db_driver,
                         "redis": config.redis_enabled,
+                        "mongo": config.mongo_enabled,
                     }),
                 ))
             }
@@ -69,7 +84,14 @@ pub async fn run(config: Config) -> Result<()> {
 
     let container = Container::new(config.clone()).await?;
     let user_module = modules::init_user(container.user_repo.clone());
-    let app = build_app(config.clone(), user_module.handler.clone());
+    let audit_module = modules::init_audit(container.audit_repo.clone());
+    let pending_module = modules::init_pending(container.pending_repo.clone());
+    let app = build_app(
+        config.clone(),
+        user_module.handler.clone(),
+        audit_module.handler.clone(),
+        pending_module.handler.clone(),
+    );
 
     let address = SocketAddr::from(([0, 0, 0, 0], config.app_port));
     let listener = TcpListener::bind(address)

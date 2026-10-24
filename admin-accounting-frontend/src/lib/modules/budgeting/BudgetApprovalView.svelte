@@ -1,25 +1,18 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import FilterSelect from '$lib/components/ui/FilterSelect.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
-	import ApprovalActions from '$lib/components/ui/ApprovalActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import BudgetDetailModal from './BudgetDetailModal.svelte';
-	import { annualBudgets, budgetingActions } from '$lib/stores/dataStore';
-	import { user } from '$lib/stores/auth';
-	import { budgetingApi } from '$lib/api';
+	import { annualBudgets } from '$lib/stores/dataStore';
 	import { currencyColumn, dateColumn, statusColumn } from '$lib/utils/tableColumns';
-	import { getErrorMessage } from '$lib/utils/errors';
 	import type { AnnualBudget, TableColumn } from '$lib/types';
 
-	let statusFilter = 'submitted';
-	let isDetailOpen = false;
-	let detailBudget: AnnualBudget | null = null;
-	let workingId = '';
+	let statusFilter = 'pending';
 
 	const stageOptions = [
-		{ value: 'submitted', label: 'Pending' },
+		{ value: 'pending', label: 'Pending' },
 		{ value: 'approved', label: 'Approved' },
 		{ value: 'rejected', label: 'Rejected' }
 	];
@@ -38,7 +31,7 @@
 		counts[budget.status] = (counts[budget.status] ?? 0) + 1;
 		return counts;
 	}, {});
-	$: pendingCount = statusCounts.submitted ?? 0;
+	$: pendingCount = statusCounts.pending ?? 0;
 	$: approvedCount = statusCounts.approved ?? 0;
 	$: rejectedCount = statusCounts.rejected ?? 0;
 	$: rows =
@@ -47,25 +40,7 @@
 			: $annualBudgets.filter((budget) => budget.status === statusFilter);
 
 	function openDetail(budget: AnnualBudget) {
-		detailBudget = budget;
-		isDetailOpen = true;
-	}
-
-	async function decide(budget: AnnualBudget, decision: 'approve' | 'reject') {
-		workingId = budget.id;
-		try {
-			if (decision === 'approve') {
-				await budgetingApi.approveBudget(budget.id, { approvedBy: $user?.name });
-				budgetingActions.approveBudget(budget.id, $user?.name);
-			} else {
-				await budgetingApi.rejectBudget(budget.id, { approvedBy: $user?.name });
-				budgetingActions.rejectBudget(budget.id);
-			}
-		} catch (error) {
-			alert(getErrorMessage(error, 'Failed to update budget status.'));
-		} finally {
-			workingId = '';
-		}
+		goto(`/budget-approval/${budget.id}`);
 	}
 </script>
 
@@ -103,17 +78,7 @@
 				onView={() => openDetail(row)}
 				viewTitle="View budget"
 				gap="normal"
-			>
-				{#if row.status === 'submitted'}
-					<ApprovalActions
-						disabled={workingId === row.id}
-						onApprove={() => decide(row, 'approve')}
-						onReject={() => decide(row, 'reject')}
-					/>
-				{/if}
-			</RowActions>
+			/>
 		</svelte:fragment>
 	</DataTable>
 </div>
-
-<BudgetDetailModal bind:isOpen={isDetailOpen} budget={detailBudget} />

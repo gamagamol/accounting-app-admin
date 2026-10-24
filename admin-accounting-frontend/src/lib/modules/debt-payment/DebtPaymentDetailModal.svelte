@@ -20,7 +20,7 @@
           <h3 class="text-base font-bold text-gray-900 mt-1">{debt.supplierName}</h3>
           <p class="text-xs text-gray-600 font-mono">No. Purchase Order: {debt.purchaseNo}</p>
         </div>
-        <Badge status="paid" label="PAID / DIBAYAR" />
+        <Badge status="completed" />
       </div>
 
       <div class="grid grid-cols-2 gap-3 text-xs">

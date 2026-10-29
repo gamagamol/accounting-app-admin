@@ -1,10 +1,8 @@
 <script lang="ts">
 	import EntityManager from '$lib/components/ui/EntityManager.svelte';
 	import type { FieldDef } from '$lib/types/entity';
-	import { departments, departmentActions } from '$lib/stores/dataStore';
-	import { departmentsApi } from '$lib/api';
+	import { departments, departmentActions, costCenters } from '$lib/stores/dataStore';
 	import type { TableColumn } from '$lib/types';
-	import type { CreateDepartmentPayload } from '$lib/api/types';
 
 	const columns: TableColumn[] = [
 		{ key: 'code', label: 'Dept Code', sortable: true },
@@ -14,11 +12,21 @@
 		{ key: 'status', label: 'Status', align: 'center' }
 	];
 
-	const fields: FieldDef[] = [
+	let fields: FieldDef[] = [];
+
+	$: fields = [
 		{ key: 'code', label: 'Department Code', type: 'text', required: true, placeholder: 'OPS' },
 		{ key: 'name', label: 'Department Name', type: 'text', required: true, placeholder: 'Operations & Production' },
 		{ key: 'manager', label: 'Department Manager', type: 'text' },
-		{ key: 'costCenter', label: 'Cost Center', type: 'text', placeholder: 'CC-OPS-01' },
+		{
+			key: 'costCenter',
+			label: 'Cost Center',
+			type: 'select',
+			options: $costCenters.map((costCenter) => ({
+				value: costCenter.code,
+				label: `${costCenter.code} - ${costCenter.name}`
+			}))
+		},
 		{
 			key: 'status',
 			label: 'Status',
@@ -34,13 +42,8 @@
 
 	async function handleSave(payload: Record<string, any>, id?: string) {
 		try {
-			if (id) {
-				await departmentsApi.update(id, payload as Partial<CreateDepartmentPayload>);
-				departmentActions.update(id, payload);
-			} else {
-				await departmentsApi.create(payload as CreateDepartmentPayload);
-				departmentActions.add(payload as CreateDepartmentPayload);
-			}
+			if (id) await departmentActions.update(id, payload);
+			else await departmentActions.add(payload as any);
 		} catch (error) {
 			alert(error instanceof Error ? error.message : 'Failed to save department.');
 		}
@@ -48,8 +51,7 @@
 
 	async function handleDelete(id: string) {
 		try {
-			await departmentsApi.delete(id);
-			departmentActions.delete(id);
+			await departmentActions.delete(id);
 		} catch (error) {
 			alert(error instanceof Error ? error.message : 'Failed to delete department.');
 		}
@@ -57,8 +59,8 @@
 </script>
 
 <EntityManager
-	title="Departments & Cost Centers"
-	description="Master data for budget ownership, budget allocation and expense accountability."
+	title="Departments"
+	description="Master data for budget ownership, budget allocation and expense accountability, including cost center assignment."
 	entityName="department"
 	{columns}
 	{fields}

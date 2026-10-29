@@ -2,7 +2,8 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import { appSettings } from '$lib/stores/dataStore';
+	import { appSettings, hydrateMasterData, taxRates } from '$lib/stores/dataStore';
+	import { masterDataApi } from '$lib/api/master';
 
 	let companyName = $appSettings.companyName;
 	let companyAddress = $appSettings.companyAddress;
@@ -12,14 +13,43 @@
 	let currency = $appSettings.currency;
 	let taxRate = $appSettings.taxRate;
 	let showSuccess = false;
+	let isSaving = false;
 
 	const inputClass =
 		'w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none';
 
-	function handleSaveCompany() {
-		appSettings.set({ companyName, companyAddress, companyPhone, companyEmail, companyNpwp, currency, taxRate });
-		showSuccess = true;
-		setTimeout(() => (showSuccess = false), 3000);
+	async function handleSaveCompany() {
+		isSaving = true;
+		try {
+			const profileResult = await masterDataApi.list<Record<string, any>>('company-profile');
+			const profile = profileResult.data?.[0];
+			const defaultTaxRateId =
+				$taxRates.find((rate) => Number(rate.rate) === Number(taxRate))?.id ?? null;
+			const payload = {
+				companyName,
+				address: companyAddress,
+				phone: companyPhone,
+				email: companyEmail,
+				npwp: companyNpwp,
+				currency,
+				defaultTaxRateId
+			};
+
+			if (profile?.id) {
+				await masterDataApi.update('company-profile', profile.id, payload);
+			} else {
+				await masterDataApi.create('company-profile', payload);
+			}
+
+			await hydrateMasterData();
+			appSettings.set({ companyName, companyAddress, companyPhone, companyEmail, companyNpwp, currency, taxRate });
+			showSuccess = true;
+			setTimeout(() => (showSuccess = false), 3000);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save company profile.');
+		} finally {
+			isSaving = false;
+		}
 	}
 </script>
 
@@ -65,7 +95,9 @@
 			</FormField>
 
 			<div class="flex justify-end pt-2">
-				<Button type="submit" variant="primary">Save Company Configuration</Button>
+				<Button type="submit" variant="primary" disabled={isSaving}>
+					{isSaving ? 'Saving...' : 'Save Company Configuration'}
+				</Button>
 			</div>
 		</form>
 	</div>

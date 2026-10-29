@@ -11,6 +11,7 @@
 	export let pageSizeOptions: number[] = [5, 10, 25, 50, 100];
 	export let emptyMessage: string = 'No records found';
 	export let showPagination: boolean = true;
+	export let rowClass: (row: any) => string = () => '';
 
 	let searchTerm: string = '';
 	let currentPage: number = 1;
@@ -204,7 +205,7 @@
 						</tr>
 					{:else}
 						{#each paginatedData as row, idx}
-							<tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+							<tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors {rowClass(row)}">
 								<td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 font-mono text-center">
 									{(currentPage - 1) * pageSize + idx + 1}
 								</td>

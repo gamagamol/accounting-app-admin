@@ -1,5 +1,5 @@
 <script lang="ts">
-  import QuotationList from '$lib/modules/quotation/QuotationList.svelte';
+	import TransactionList from '$lib/live/TransactionList.svelte';
 </script>
 
-<QuotationList />
+<TransactionList type="quotation" />

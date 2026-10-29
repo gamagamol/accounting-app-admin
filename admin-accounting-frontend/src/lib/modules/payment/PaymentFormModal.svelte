@@ -13,8 +13,10 @@
   let date = new Date().toISOString().split('T')[0];
   let amount = 0;
   let method: 'cash' | 'transfer' | 'check' = 'transfer';
+  let wasOpen = false;
 
-  $: if (isOpen) {
+  $: if (isOpen && !wasOpen) {
+    wasOpen = true;
     if (paymentToEdit) {
       invoiceNo = paymentToEdit.invoiceNo;
       customerName = paymentToEdit.customerName;
@@ -29,6 +31,8 @@
       amount = pendingBill?.amount || 5000000;
       method = 'transfer';
     }
+  } else if (!isOpen) {
+    wasOpen = false;
   }
 
   function handleBillChange(billNo: string) {

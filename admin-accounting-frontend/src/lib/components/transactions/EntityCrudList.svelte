@@ -11,9 +11,16 @@
 	export let definition: CrudDefinition;
 	export let store: CrudDefinition['store'];
 
-	function handleDelete(row: any) {
+	async function handleDelete(row: any) {
 		const label = row[definition.displayKey] ?? row.id;
 		if (!confirm(`Delete ${definition.entityName} "${label}"? This action cannot be undone.`)) return;
+
+		try {
+			await definition.deleteRecord(row.id);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : `Failed to delete ${definition.entityName}.`);
+			return;
+		}
 
 		auditLogActions.record({
 			module: definition.module,
@@ -26,7 +33,6 @@
 			description: row.description ?? row.message,
 			before: row as Record<string, unknown>
 		});
-		definition.deleteRecord(row.id);
 	}
 </script>
 

@@ -1,14 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import QuotationFormPage from '$lib/modules/quotation/QuotationFormPage.svelte';
-	import { quotations } from '$lib/stores/dataStore';
+	import { goto } from '$app/navigation';
 
-	$: quotationId = $page.params.id ?? '';
-	$: quotation = $quotations.find((item) => item.id === quotationId) ?? null;
+	onMount(() => {
+		goto(`/quotation/${$page.params.id}`, { replaceState: true });
+	});
 </script>
 
-{#if quotation}
-	<QuotationFormPage {quotation} />
-{:else}
-	<p class="text-sm text-gray-500 dark:text-slate-400">Quotation not found.</p>
-{/if}
+<div class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+	Redirecting to detail...
+</div>

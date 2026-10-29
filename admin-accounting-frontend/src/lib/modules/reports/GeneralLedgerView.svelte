@@ -1,67 +1,53 @@
 <script lang="ts">
-	import DataTable from '$lib/components/ui/DataTable.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import { journalEntries, chartOfAccounts } from '$lib/stores/dataStore';
+	import LiveReport from '$lib/live/LiveReport.svelte';
+	import { sumBy } from '$lib/api/reports';
 	import { formatCurrency, formatDate } from '$lib/utils/formatters';
 	import type { TableColumn } from '$lib/types';
 
 	const columns: TableColumn[] = [
 		{ key: 'date', label: 'Journal Date', sortable: true, format: (v) => formatDate(v) },
-		{ key: 'reference', label: 'Reference No', sortable: true },
-		{ key: 'description', label: 'Transaction Description', sortable: true },
-		{ key: 'debitAccount', label: 'Debit Account', sortable: true },
-		{ key: 'creditAccount', label: 'Credit Account', sortable: true },
-		{ key: 'amount', label: 'Amount (IDR)', align: 'right', sortable: true, format: (v) => formatCurrency(v) }
+		{ key: 'journal_number', label: 'Reference No', sortable: true },
+		{ key: 'account_code', label: 'Account Code', sortable: true },
+		{ key: 'account_name', label: 'Account Name', sortable: true },
+		{ key: 'description', label: 'Description', sortable: true },
+		{ key: 'debit', label: 'Debit', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
+		{ key: 'credit', label: 'Credit', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
+		{ key: 'balance', label: 'Balance', align: 'right', sortable: true, format: (v) => formatCurrency(v) },
+		{ key: 'reference_type', label: 'Source', align: 'center' }
 	];
 
-	$: completedJournals = $journalEntries.filter((entry) => entry.status === 'completed');
-	$: totalJournalAmount = completedJournals.reduce((s, j) => s + j.amount, 0);
+	const summary = (rows: Record<string, any>[]) => {
+		const accounts = new Set(rows.map((row) => row.account_code));
+		return [
+			{ label: 'Total Debit', value: formatCurrency(sumBy(rows, 'debit')), tone: 'text-blue-700 dark:text-blue-400' },
+			{ label: 'Total Credit', value: formatCurrency(sumBy(rows, 'credit')), tone: 'text-indigo-700 dark:text-indigo-400' },
+			{ label: 'Journal Lines', value: String(rows.length), tone: 'text-gray-900 dark:text-white' },
+			{ label: 'Accounts Touched', value: String(accounts.size), tone: 'text-emerald-700 dark:text-emerald-400' }
+		];
+	};
 </script>
 
-<div class="space-y-6">
-	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Total General Journal Movements</span>
-			<p class="text-xl font-bold text-gray-900 dark:text-white mt-1 font-mono">{formatCurrency(totalJournalAmount)}</p>
-		</div>
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Active Accounts (COA)</span>
-			<p class="text-xl font-bold text-blue-700 dark:text-blue-400 mt-1 font-mono">{$chartOfAccounts.length} Accounts</p>
-		</div>
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Bookkeeping Balance</span>
-			<p class="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-2">
-				<span>Balanced</span>
-				<span class="text-sm">⚖️</span>
-			</p>
-		</div>
-	</div>
-
-	<div class="flex justify-between items-center">
-		<p class="text-xs text-gray-500 dark:text-slate-400">
-			List of general journal entries recording financial and operational transactions.
-		</p>
-		<Button variant="secondary" size="sm" on:click={() => window.print()}>🖨️ Print General Journal</Button>
-	</div>
-
-	<DataTable
-		{columns}
-		data={completedJournals}
-		searchPlaceholder="Search journals by description, account, or reference number..."
-		searchKeys={['description', 'reference', 'debitAccount', 'creditAccount']}
-	>
-		<svelte:fragment slot="cell" let:column let:value let:row>
-			{#if column.key === 'reference'}
-				<span class="font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-500/20">
-					{value}
-				</span>
-			{:else if column.key === 'debitAccount'}
-				<span class="font-medium text-emerald-800 dark:text-emerald-300">{value}</span>
-			{:else if column.key === 'creditAccount'}
-				<span class="font-medium text-rose-800 dark:text-rose-300">{value}</span>
-			{:else}
-				{column.format ? column.format(value, row) : value}
-			{/if}
-		</svelte:fragment>
-	</DataTable>
-</div>
+<LiveReport
+	slug="general-ledger"
+	{columns}
+	{summary}
+	fiscalYearMode
+	autoRefreshMs={30000}
+	searchPlaceholder="Search reference, account, or description..."
+	searchKeys={['journal_number', 'account_code', 'account_name', 'description', 'reference_type']}
+	emptyMessage="No posted journal entries yet."
+>
+	<svelte:fragment slot="cell" let:column let:value let:row>
+		{#if column.key === 'journal_number'}
+			<span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 font-mono font-bold text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
+				{value}
+			</span>
+		{:else if column.key === 'balance'}
+			<span class="font-mono font-bold {Number(value) >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}">
+				{formatCurrency(value)}
+			</span>
+		{:else}
+			{column.format ? column.format(value, row) : value ?? '-'}
+		{/if}
+	</svelte:fragment>
+</LiveReport>

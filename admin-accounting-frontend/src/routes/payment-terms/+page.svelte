@@ -18,9 +18,21 @@
 		{ key: 'description', label: 'Description', type: 'textarea', colSpan: 'full' }
 	];
 
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) paymentTermActions.update(id, payload);
-		else paymentTermActions.add(payload as any);
+	async function handleSave(payload: Record<string, any>, id?: string) {
+		try {
+			if (id) await paymentTermActions.update(id, payload);
+			else await paymentTermActions.add(payload as any);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save payment term.');
+		}
+	}
+
+	async function handleDelete(id: string) {
+		try {
+			await paymentTermActions.delete(id);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to delete payment term.');
+		}
 	}
 </script>
 
@@ -36,5 +48,5 @@
 	createLabel="Add Payment Term"
 	displayKey="name"
 	onSave={handleSave}
-	onDelete={(id) => paymentTermActions.delete(id)}
+	onDelete={handleDelete}
 />

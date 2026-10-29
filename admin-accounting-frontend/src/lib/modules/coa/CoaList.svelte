@@ -42,9 +42,13 @@
 		isDetailOpen = true;
 	}
 
-	function handleDelete(coa: ChartOfAccount) {
+	async function handleDelete(coa: ChartOfAccount) {
 		if (confirm(`Delete account ${coa.code} - ${coa.name}? This action cannot be undone.`)) {
-			coaActions.delete(coa.id);
+			try {
+				await coaActions.delete(coa.id);
+			} catch (error) {
+				alert(error instanceof Error ? error.message : 'Failed to delete account.');
+			}
 		}
 	}
 

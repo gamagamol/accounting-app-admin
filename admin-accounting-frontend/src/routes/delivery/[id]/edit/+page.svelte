@@ -1,14 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import DeliveryFormPage from '$lib/modules/delivery/DeliveryFormPage.svelte';
-	import { deliveries } from '$lib/stores/dataStore';
+	import { goto } from '$app/navigation';
 
-	$: deliveryId = $page.params.id ?? '';
-	$: delivery = $deliveries.find((item) => item.id === deliveryId) ?? null;
+	onMount(() => {
+		goto(`/delivery/${$page.params.id}`, { replaceState: true });
+	});
 </script>
 
-{#if delivery}
-	<DeliveryFormPage {delivery} />
-{:else}
-	<p class="text-sm text-gray-500 dark:text-slate-400">Delivery order not found.</p>
-{/if}
+<div class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+	Redirecting to detail...
+</div>

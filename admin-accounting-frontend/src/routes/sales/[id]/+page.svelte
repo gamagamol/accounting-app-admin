@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import SalesDetailPage from '$lib/modules/sales/SalesDetailPage.svelte';
-
-	$: saleId = $page.params.id ?? '';
+	import TransactionDetailRoute from '$lib/live/TransactionDetailRoute.svelte';
 </script>
 
-<SalesDetailPage {saleId} />
+<TransactionDetailRoute type="sales-order" />

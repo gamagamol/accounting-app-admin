@@ -5,7 +5,6 @@ FROM rust:1.98-slim AS builder
 WORKDIR /src
 
 COPY Cargo.toml Cargo.lock ./
-COPY cmd ./cmd
 COPY src ./src
 COPY migrations ./migrations
 

@@ -32,9 +32,21 @@
 		{ key: 'description', label: 'Description', type: 'textarea', colSpan: 'full' }
 	];
 
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) taxRateActions.update(id, payload);
-		else taxRateActions.add(payload as any);
+	async function handleSave(payload: Record<string, any>, id?: string) {
+		try {
+			if (id) await taxRateActions.update(id, payload);
+			else await taxRateActions.add(payload as any);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save tax rate.');
+		}
+	}
+
+	async function handleDelete(id: string) {
+		try {
+			await taxRateActions.delete(id);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to delete tax rate.');
+		}
 	}
 </script>
 
@@ -50,5 +62,5 @@
 	createLabel="Add Tax Rate"
 	displayKey="name"
 	onSave={handleSave}
-	onDelete={(id) => taxRateActions.delete(id)}
+	onDelete={handleDelete}
 />

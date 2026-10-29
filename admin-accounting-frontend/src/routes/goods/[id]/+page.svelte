@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import GoodsDetailPage from '$lib/modules/goods/GoodsDetailPage.svelte';
-
-	$: goodsId = $page.params.id ?? '';
+	import TransactionDetailRoute from '$lib/live/TransactionDetailRoute.svelte';
 </script>
 
-<GoodsDetailPage {goodsId} />
+<TransactionDetailRoute type="goods-receipt" />

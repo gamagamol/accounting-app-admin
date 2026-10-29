@@ -66,12 +66,17 @@ export async function apiRequest<T>(
 ): Promise<ApiResult<T>> {
 	const method = options.method ?? 'GET';
 	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+	const versionedPath = normalizedPath.startsWith('/api/v1/')
+		? normalizedPath
+		: normalizedPath.startsWith('/api/')
+			? normalizedPath.replace(/^\/api\//, '/api/v1/')
+			: normalizedPath;
 
 	if (!isApiConfigured) {
 		const message = 'API base URL is not configured; payload captured in mock mode.';
 		recordCall({
 			method,
-			path: normalizedPath,
+			path: versionedPath,
 			payload: options.body,
 			status: 'mock',
 			mode: 'mock',
@@ -79,7 +84,7 @@ export async function apiRequest<T>(
 		});
 
 		if (browser) {
-			console.info(`[accounting-api:mock] ${method} ${normalizedPath}`, options.body ?? '(no body)');
+			console.info(`[accounting-api:mock] ${method} ${versionedPath}`, options.body ?? '(no body)');
 		}
 
 		return {
@@ -89,7 +94,7 @@ export async function apiRequest<T>(
 		};
 	}
 
-	const url = `${configuredBaseUrl}${normalizedPath}`;
+	const url = `${configuredBaseUrl}${versionedPath}`;
 
 	try {
 		const response = await fetch(url, {
@@ -110,7 +115,7 @@ export async function apiRequest<T>(
 				(parsed && (parsed.message as string)) || `Request failed with status ${response.status}`;
 			recordCall({
 				method,
-				path: normalizedPath,
+				path: versionedPath,
 				payload: options.body,
 				status: 'error',
 				mode: 'live',
@@ -121,7 +126,7 @@ export async function apiRequest<T>(
 
 		recordCall({
 			method,
-			path: normalizedPath,
+			path: versionedPath,
 			payload: options.body,
 			status: 'success',
 			mode: 'live'
@@ -137,7 +142,7 @@ export async function apiRequest<T>(
 			if (!error.message.startsWith('Request failed')) {
 				recordCall({
 					method,
-					path: normalizedPath,
+					path: versionedPath,
 					payload: options.body,
 					status: 'error',
 					mode: 'live',

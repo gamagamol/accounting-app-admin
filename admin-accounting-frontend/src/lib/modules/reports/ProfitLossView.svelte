@@ -1,114 +1,279 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { chartOfAccounts } from '$lib/stores/dataStore';
+	import { getReport, type ReportRow } from '$lib/api/reports';
 	import { formatCurrency } from '$lib/utils/formatters';
+	import { periodClosings } from '$lib/stores/dataStore';
+	import { selectedFiscalYear, currentFiscalYear, fiscalYearLabel } from '$lib/stores/fiscal';
 
-	interface StatementLine {
-		code: string;
-		name: string;
-		amount: number;
+	const SLUG = 'profit-loss';
+	const AUTO_REFRESH_MS = 30000;
+	const COGS_CODES = ['500'];
+
+	let rows: ReportRow[] = [];
+	let loading = true;
+	let refreshing = false;
+	let error = '';
+	let lastUpdated: Date | null = null;
+	let search = '';
+	let showZero = false;
+	let mounted = false;
+	let requestId = 0;
+	let refreshTimer: ReturnType<typeof setInterval> | undefined;
+
+	// ---------- Fiscal year & status ----------
+	$: fiscalYear = String($selectedFiscalYear || currentFiscalYear);
+	$: yearPeriods = $periodClosings.filter(
+		(item) => String(item.startDate).slice(0, 4) === fiscalYear
+	);
+	$: isFinal = yearPeriods.length > 0 && yearPeriods.every((item) => item.status === 'completed');
+
+	// ---------- Data ----------
+	async function load(year: string, silent = false) {
+		const current = ++requestId;
+		if (!silent) loading = true;
+		refreshing = true;
+		error = '';
+
+		try {
+			const result = await getReport(SLUG, year || undefined);
+			if (current !== requestId) return;
+			rows = Array.isArray(result.data) ? result.data : [];
+			lastUpdated = new Date();
+		} catch (err) {
+			if (current !== requestId) return;
+			error = err instanceof Error ? err.message : 'Failed to load report';
+		} finally {
+			if (current === requestId) {
+				loading = false;
+				refreshing = false;
+			}
+		}
 	}
 
-	$: revenueAccounts = $chartOfAccounts.filter((a) => a.category === 'Revenue');
-	$: expenseAccounts = $chartOfAccounts.filter((a) => a.category === 'Expense');
+	$: if (mounted) void load(fiscalYear);
 
-	$: cogsAccounts = expenseAccounts.filter(
-		(a) => a.name.toLowerCase().includes('cost of goods') || a.code.startsWith('5-1')
-	);
-	$: operatingExpenses = expenseAccounts.filter((a) => !cogsAccounts.includes(a));
+	onMount(() => {
+		mounted = true;
+		refreshTimer = setInterval(() => void load(fiscalYear, true), AUTO_REFRESH_MS);
+	});
 
-	$: totalRevenue = revenueAccounts.reduce((s, a) => s + a.balance, 0);
-	$: totalCogs = cogsAccounts.reduce((s, a) => s + a.balance, 0);
+	onDestroy(() => {
+		if (refreshTimer) clearInterval(refreshTimer);
+	});
+
+	// ---------- Profit & Loss ----------
+	const amountOf = (row: ReportRow) => Number(row.amount ?? 0);
+	const byCode = (a: ReportRow, b: ReportRow) =>
+		String(a.account_code).localeCompare(String(b.account_code), undefined, { numeric: true });
+	const isCogs = (r: ReportRow) =>
+		COGS_CODES.includes(String(r.account_code)) || /cost of goods/i.test(String(r.account_name));
+	const matches = (row: ReportRow, q: string) =>
+		!q ||
+		[row.account_code, row.account_name].some((v) =>
+			String(v ?? '').toLowerCase().includes(q.toLowerCase())
+		);
+	const sum = (list: ReportRow[]) => list.reduce((s, r) => s + amountOf(r), 0);
+	const pct = (v: number, base: number) => (base > 0 ? `${((v / base) * 100).toFixed(1)}%` : '–');
+	const money = (v: number, negative = false) =>
+		negative && v !== 0 ? `(${formatCurrency(v)})` : formatCurrency(v);
+
+	// grup data lengkap (untuk total, tidak terpengaruh filter)
+	$: revenueAll = rows.filter((r) => r.account_type === 'revenue');
+	$: cogsAll = rows.filter((r) => r.account_type === 'expense' && isCogs(r));
+	$: opexAll = rows.filter((r) => r.account_type === 'expense' && !isCogs(r));
+
+	$: totalRevenue = sum(revenueAll);
+	$: totalCogs = sum(cogsAll);
+	$: totalOpex = sum(opexAll);
 	$: grossProfit = totalRevenue - totalCogs;
-	$: totalOperating = operatingExpenses.reduce((s, a) => s + a.balance, 0);
-	$: netProfit = grossProfit - totalOperating;
-	$: marginPct = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 1000) / 10 : 0;
+	$: net = grossProfit - totalOpex;
+	$: grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+	$: netMargin = totalRevenue > 0 ? (net / totalRevenue) * 100 : 0;
 
-	const toLines = (accounts: typeof revenueAccounts): StatementLine[] =>
-		accounts.map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
+	// baris yang ditampilkan (kena pencarian & filter nol)
+	const visible = (list: ReportRow[], q: string, zero: boolean) =>
+		list.filter((r) => matches(r, q) && (zero || amountOf(r) !== 0)).sort(byCode);
+
+	$: sections = [
+		{
+			key: 'revenue',
+			title: 'Revenue',
+			totalLabel: 'Total Revenue',
+			rows: visible(revenueAll, search, showZero),
+			total: totalRevenue,
+			negative: false,
+			tone: 'text-blue-700 dark:text-blue-400',
+			empty: 'No revenue recorded.'
+		},
+		{
+			key: 'cogs',
+			title: 'Cost of Goods Sold',
+			totalLabel: 'Total Cost of Goods Sold',
+			rows: visible(cogsAll, search, showZero),
+			total: totalCogs,
+			negative: true,
+			tone: 'text-orange-700 dark:text-orange-400',
+			empty: 'No cost of goods sold recorded.'
+		},
+		{
+			key: 'opex',
+			title: 'Operating Expenses',
+			totalLabel: 'Total Operating Expenses',
+			rows: visible(opexAll, search, showZero),
+			total: totalOpex,
+			negative: true,
+			tone: 'text-amber-700 dark:text-amber-400',
+			empty: 'No operating expenses recorded.'
+		}
+	];
+
+	$: toneOf = (v: number) =>
+		v >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
 </script>
 
-<div class="space-y-6">
-	<div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Total Revenue</span>
-			<p class="text-xl font-bold text-blue-700 dark:text-blue-400 mt-1 font-mono">{formatCurrency(totalRevenue)}</p>
-		</div>
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Gross Profit</span>
-			<p class="text-xl font-bold text-indigo-700 dark:text-indigo-400 mt-1 font-mono">{formatCurrency(grossProfit)}</p>
-		</div>
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Net Profit</span>
-			<p class="text-xl font-bold {netProfit >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'} mt-1 font-mono">{formatCurrency(netProfit)}</p>
-		</div>
-		<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
-			<span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Net Margin</span>
-			<p class="text-xl font-bold text-gray-900 dark:text-white mt-1 font-mono">{marginPct}%</p>
-		</div>
-	</div>
-
-	<div class="flex justify-end gap-2">
-		<Button variant="secondary" size="sm" on:click={() => window.print()}>🖨️ Print Profit & Loss</Button>
-	</div>
-
-	<div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
-		<div class="p-5 border-b border-gray-200 dark:border-slate-800">
-			<h3 class="text-base font-bold text-gray-900 dark:text-white">Profit & Loss Statement</h3>
-			<p class="text-xs text-gray-500 dark:text-slate-400 mt-0.5">For the current reporting period</p>
+<div class="space-y-4">
+	<!-- Toolbar -->
+	<div class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
+		<div class="flex flex-wrap items-center gap-2">
+			<span
+				class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase
+					{isFinal
+					? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200'
+					: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200'}"
+			>
+				<span class="h-1.5 w-1.5 rounded-full {isFinal ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
+				{isFinal ? 'Final' : 'Provisional (realtime)'}
+			</span>
+			<span class="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+				{$fiscalYearLabel}
+			</span>
+			<input
+				type="search"
+				bind:value={search}
+				placeholder="Search account..."
+				class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+			/>
+			<label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-slate-300">
+				<input type="checkbox" bind:checked={showZero} class="rounded border-gray-300" />
+				Show zero accounts
+			</label>
 		</div>
 
-		<div class="p-5 space-y-6 text-sm">
-			<section>
-				<div class="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-					<h4 class="font-bold text-gray-800 dark:text-slate-100 uppercase text-xs tracking-wider">Revenue</h4>
-					<span class="font-mono font-bold text-blue-700 dark:text-blue-400">{formatCurrency(totalRevenue)}</span>
-				</div>
-				{#each toLines(revenueAccounts) as line}
-					<div class="flex items-center justify-between py-1.5 text-gray-600 dark:text-slate-300">
-						<span><span class="font-mono text-[11px] text-gray-400 dark:text-slate-500 mr-2">{line.code}</span>{line.name}</span>
-						<span class="font-mono">{formatCurrency(line.amount)}</span>
-					</div>
-				{/each}
-			</section>
-
-			<section>
-				<div class="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-					<h4 class="font-bold text-gray-800 dark:text-slate-100 uppercase text-xs tracking-wider">Cost of Goods Sold</h4>
-					<span class="font-mono font-bold text-amber-700 dark:text-amber-400">({formatCurrency(totalCogs)})</span>
-				</div>
-				{#each toLines(cogsAccounts) as line}
-					<div class="flex items-center justify-between py-1.5 text-gray-600 dark:text-slate-300">
-						<span><span class="font-mono text-[11px] text-gray-400 dark:text-slate-500 mr-2">{line.code}</span>{line.name}</span>
-						<span class="font-mono">({formatCurrency(line.amount)})</span>
-					</div>
-				{/each}
-			</section>
-
-			<div class="flex items-center justify-between py-3 border-y-2 border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/60 px-3 rounded">
-				<span class="font-bold text-gray-900 dark:text-white">Gross Profit</span>
-				<span class="font-mono font-bold text-indigo-700 dark:text-indigo-300">{formatCurrency(grossProfit)}</span>
-			</div>
-
-			<section>
-				<div class="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-					<h4 class="font-bold text-gray-800 dark:text-slate-100 uppercase text-xs tracking-wider">Operating Expenses</h4>
-					<span class="font-mono font-bold text-amber-700 dark:text-amber-400">({formatCurrency(totalOperating)})</span>
-				</div>
-				{#each toLines(operatingExpenses) as line}
-					<div class="flex items-center justify-between py-1.5 text-gray-600 dark:text-slate-300">
-						<span><span class="font-mono text-[11px] text-gray-400 dark:text-slate-500 mr-2">{line.code}</span>{line.name}</span>
-						<span class="font-mono">({formatCurrency(line.amount)})</span>
-					</div>
-				{/each}
-			</section>
-
-			<div class="flex items-center justify-between py-3 border-t-2 border-gray-300 dark:border-slate-600 px-3">
-				<span class="font-bold text-gray-900 dark:text-white text-base">Net Profit / (Loss)</span>
-				<span class="font-mono font-black text-base {netProfit >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}">
-					{formatCurrency(netProfit)}
+		<div class="flex flex-wrap items-center gap-3">
+			<p class="text-xs text-gray-500 dark:text-slate-400">
+				{isFinal
+					? 'Final figures for the selected fiscal year.'
+					: 'Provisional figures from completed transactions. Final after period closing.'}
+				{#if lastUpdated}Last refreshed {lastUpdated.toLocaleTimeString()}.{/if}
+				<span class="block text-[11px] text-gray-400 dark:text-slate-500">
+					Auto-refresh every {AUTO_REFRESH_MS / 1000}s.
 				</span>
-			</div>
+			</p>
+			<Button size="sm" variant="secondary" on:click={() => load(fiscalYear)} disabled={refreshing}>
+				{refreshing ? 'Refreshing...' : 'Refresh'}
+			</Button>
 		</div>
 	</div>
+
+	{#if error}
+		<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+			{error}
+		</div>
+	{/if}
+
+	{#if loading && rows.length === 0}
+		<div class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+			Loading report data...
+		</div>
+	{:else if rows.length === 0}
+		<div class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+			No revenue or expense activity yet.
+		</div>
+	{:else}
+		<div class="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+			<div class="border-b border-slate-200 px-6 py-5 text-center dark:border-slate-700">
+				<h2 class="text-lg font-bold tracking-wide text-slate-900 uppercase dark:text-slate-100">
+					Profit &amp; Loss Statement
+				</h2>
+				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{$fiscalYearLabel}</p>
+			</div>
+
+			<div class="overflow-x-auto px-6 py-4">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-xs tracking-wider text-slate-500 uppercase dark:text-slate-400">
+							<th class="w-28 pb-2 text-left font-semibold">Code</th>
+							<th class="pb-2 text-left font-semibold">Account</th>
+							<th class="w-44 pb-2 text-right font-semibold">Amount</th>
+							<th class="w-24 pb-2 text-right font-semibold">% Rev</th>
+						</tr>
+					</thead>
+
+					{#each sections as section (section.key)}
+						<tbody>
+							<tr>
+								<td colspan="4" class="pt-5 pb-1 text-xs font-bold tracking-wider uppercase {section.tone}">
+									{section.title}
+								</td>
+							</tr>
+							{#each section.rows as row (row.account_code)}
+								<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+									<td class="py-1.5 pl-3 font-mono text-slate-500 dark:text-slate-400">{row.account_code}</td>
+									<td class="py-1.5 pl-3 text-slate-800 dark:text-slate-200">{row.account_name}</td>
+									<td class="py-1.5 text-right font-mono text-slate-800 dark:text-slate-200">
+										{money(amountOf(row), section.negative)}
+									</td>
+									<td class="py-1.5 text-right text-slate-500 dark:text-slate-400">
+										{pct(amountOf(row), totalRevenue)}
+									</td>
+								</tr>
+							{:else}
+								<tr>
+									<td colspan="4" class="py-2 pl-3 text-slate-400 italic">
+										{search ? 'No matching account.' : section.empty}
+									</td>
+								</tr>
+							{/each}
+							<tr class="border-t border-slate-300 font-semibold dark:border-slate-600">
+								<td colspan="2" class="py-2 text-slate-900 dark:text-slate-100">{section.totalLabel}</td>
+								<td class="py-2 text-right font-mono {section.tone}">{money(section.total, section.negative)}</td>
+								<td class="py-2 text-right text-slate-500 dark:text-slate-400">{pct(section.total, totalRevenue)}</td>
+							</tr>
+
+							{#if section.key === 'cogs'}
+								<tr class="bg-slate-50 font-bold dark:bg-slate-800/60">
+									<td colspan="2" class="px-3 py-2.5 text-slate-900 dark:text-slate-100">Gross Profit</td>
+									<td class="py-2.5 text-right font-mono {toneOf(grossProfit)}">
+										{grossProfit < 0 ? `(${formatCurrency(Math.abs(grossProfit))})` : formatCurrency(grossProfit)}
+									</td>
+									<td class="py-2.5 text-right text-sm {toneOf(grossProfit)}">{grossMargin.toFixed(1)}%</td>
+								</tr>
+							{/if}
+						</tbody>
+					{/each}
+
+					<!-- NET -->
+					<tfoot>
+						<tr class="border-t-2 border-double border-slate-800 dark:border-slate-300">
+							<td colspan="2" class="pt-4 pb-1 text-base font-bold text-slate-900 dark:text-slate-100">
+								{net >= 0 ? 'Net Profit' : 'Net Loss'}
+							</td>
+							<td class="pt-4 pb-1 text-right font-mono text-base font-bold {toneOf(net)}">
+								{net >= 0 ? formatCurrency(net) : `(${formatCurrency(Math.abs(net))})`}
+							</td>
+							<td class="pt-4 pb-1 text-right text-sm font-semibold {toneOf(net)}">
+								{netMargin.toFixed(1)}%
+							</td>
+						</tr>
+						<tr>
+							<td colspan="4" class="pt-1 text-right text-xs text-slate-400">
+								% Rev = persentase terhadap Total Revenue
+							</td>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+		</div>
+	{/if}
 </div>

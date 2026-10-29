@@ -30,9 +30,21 @@
 		{ key: 'description', label: 'Description', type: 'textarea', colSpan: 'full' }
 	];
 
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) unitActions.update(id, payload);
-		else unitActions.add(payload as any);
+	async function handleSave(payload: Record<string, any>, id?: string) {
+		try {
+			if (id) await unitActions.update(id, payload);
+			else await unitActions.add(payload as any);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save unit.');
+		}
+	}
+
+	async function handleDelete(id: string) {
+		try {
+			await unitActions.delete(id);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to delete unit.');
+		}
 	}
 </script>
 
@@ -48,5 +60,5 @@
 	createLabel="Add Unit"
 	displayKey="name"
 	onSave={handleSave}
-	onDelete={(id) => unitActions.delete(id)}
+	onDelete={handleDelete}
 />

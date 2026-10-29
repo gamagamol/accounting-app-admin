@@ -3,7 +3,6 @@
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
 	import { auditLogActions, auditLogs } from '$lib/stores/dataStore';
-	import { dummyAuditEntries } from '$lib/data/dummyAudit';
 	import type { AuditLogEntry, AuditTransactionStatus } from '$lib/types';
 
 	export let entityType: string;
@@ -11,7 +10,6 @@
 	export let title: string = 'Audit Log';
 	export let description: string = 'Immutable record of changes made to this transaction.';
 	export let compact: boolean = false;
-	export let useDummy: boolean = true;
 
 	let isDetailOpen = false;
 	let selectedEntry: AuditLogEntry | null = null;
@@ -73,8 +71,7 @@
 	$: recordedEntries = $auditLogs
 		.filter((entry) => entry.entityType === entityType && entry.entityId === entityId)
 		.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-	$: entries = recordedEntries.length > 0 ? recordedEntries : useDummy ? dummyAuditEntries(entityType, entityId) : [];
-	$: showingSample = recordedEntries.length === 0 && entries.length > 0;
+	$: entries = recordedEntries;
 
 	function formatTimestamp(value: string) {
 		return new Date(value).toLocaleString('en-US', {
@@ -141,12 +138,6 @@
 			{entries.length} {entries.length === 1 ? 'entry' : 'entries'}
 		</span>
 	</div>
-
-	{#if showingSample}
-		<p class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-			Showing sample audit entries. Real actions are recorded here as soon as the transaction is saved.
-		</p>
-	{/if}
 
 	{#if entries.length === 0}
 		<div class="px-4 py-8 text-center">

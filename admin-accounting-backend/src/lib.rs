@@ -1,5 +1,6 @@
+#[path = "app/app.rs"]
 pub mod app;
-pub mod config;
-pub mod core;
+#[path = "infra/infra.rs"]
 pub mod infra;
+#[path = "pkg/pkg.rs"]
 pub mod pkg;

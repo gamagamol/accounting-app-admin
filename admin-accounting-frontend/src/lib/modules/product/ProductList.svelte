@@ -53,9 +53,13 @@
 		isDetailOpen = true;
 	}
 
-	function handleDelete(product: Product) {
+	async function handleDelete(product: Product) {
 		if (confirm(`Delete product "${product.name}"? This action cannot be undone.`)) {
-			productActions.delete(product.id);
+			try {
+				await productActions.delete(product.id);
+			} catch (error) {
+				alert(error instanceof Error ? error.message : 'Failed to delete product.');
+			}
 		}
 	}
 </script>

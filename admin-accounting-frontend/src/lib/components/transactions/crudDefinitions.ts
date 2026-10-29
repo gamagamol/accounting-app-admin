@@ -17,7 +17,7 @@ import {
 import { formatCurrency, formatDate } from '$lib/utils/formatters';
 import type { FieldDef } from '$lib/types/entity';
 import { transactionStatusOptions } from '$lib/data/transaction-statuses';
-import type { TableColumn } from '$lib/types';
+import type { ProductCategory, TableColumn } from '$lib/types';
 import type { Readable } from 'svelte/store';
 
 export interface CrudDefinition {
@@ -36,9 +36,9 @@ export interface CrudDefinition {
 	columns: TableColumn[];
 	searchKeys: string[];
 	defaults?: () => Record<string, any>;
-	createRecord: (payload: Record<string, any>) => any;
-	updateRecord: (id: string, payload: Record<string, any>) => void;
-	deleteRecord: (id: string) => void;
+	createRecord: (payload: Record<string, any>) => any | Promise<any>;
+	updateRecord: (id: string, payload: Record<string, any>) => void | Promise<void>;
+	deleteRecord: (id: string) => void | Promise<void>;
 }
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -367,7 +367,7 @@ export const purchaseReturnDefinition: CrudDefinition = {
 	deleteRecord: (id) => purchaseReturnActions.delete(id)
 };
 
-export const productAccountMappingDefinition: CrudDefinition = {
+const productAccountMappingBase: Omit<CrudDefinition, 'fields'> = {
 	route: 'product-account-mapping',
 	module: 'inventory',
 	entityType: 'product_account_mapping',
@@ -379,13 +379,6 @@ export const productAccountMappingDefinition: CrudDefinition = {
 	displayKey: 'category',
 	createLabel: 'Add Mapping',
 	store: productAccountMappings,
-	fields: [
-		{ key: 'category', label: 'Product Category', type: 'text', required: true, placeholder: 'Raw Materials' },
-		{ key: 'inventoryAccount', label: 'Inventory Account', type: 'text' },
-		{ key: 'salesAccount', label: 'Sales Account', type: 'text' },
-		{ key: 'cogsAccount', label: 'COGS Account', type: 'text' },
-		{ key: 'returnAccount', label: 'Return Account', type: 'text' }
-	],
 	columns: [
 		{ key: 'category', label: 'Product Category', sortable: true },
 		{ key: 'inventoryAccount', label: 'Inventory Account' },
@@ -399,3 +392,28 @@ export const productAccountMappingDefinition: CrudDefinition = {
 	updateRecord: (id, payload) => inventoryActions.updateMapping(id, payload),
 	deleteRecord: (id) => inventoryActions.deleteMapping(id)
 };
+
+export function buildProductAccountMappingDefinition(
+	categories: ProductCategory[]
+): CrudDefinition {
+	return {
+		...productAccountMappingBase,
+		defaults: () => ({ category: categories[0]?.name ?? '' }),
+		fields: [
+			{
+				key: 'category',
+				label: 'Product Category',
+				type: 'select',
+				required: true,
+				options: categories.map((category) => ({
+					value: category.name,
+					label: `${category.code} - ${category.name}`
+				}))
+			},
+			{ key: 'inventoryAccount', label: 'Inventory Account', type: 'text' },
+			{ key: 'salesAccount', label: 'Sales Account', type: 'text' },
+			{ key: 'cogsAccount', label: 'COGS Account', type: 'text' },
+			{ key: 'returnAccount', label: 'Return Account', type: 'text' }
+		]
+	};
+}

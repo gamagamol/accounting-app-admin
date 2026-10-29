@@ -1,7 +1,9 @@
 <script lang="ts">
 	import EntityCrudList from '$lib/components/transactions/EntityCrudList.svelte';
-	import { productAccountMappingDefinition } from '$lib/components/transactions/crudDefinitions';
-	import { productAccountMappings } from '$lib/stores/dataStore';
+	import { buildProductAccountMappingDefinition } from '$lib/components/transactions/crudDefinitions';
+	import { productAccountMappings, productCategories } from '$lib/stores/dataStore';
+
+	$: definition = buildProductAccountMappingDefinition($productCategories);
 </script>
 
-<EntityCrudList definition={productAccountMappingDefinition} store={productAccountMappings} />
+<EntityCrudList {definition} store={productAccountMappings} />

@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import PurchaseDetailPage from '$lib/modules/purchase/PurchaseDetailPage.svelte';
-
-	$: purchaseId = $page.params.id ?? '';
+	import TransactionDetailRoute from '$lib/live/TransactionDetailRoute.svelte';
 </script>
 
-<PurchaseDetailPage {purchaseId} />
+<TransactionDetailRoute type="purchase-order" />

@@ -19,8 +19,10 @@
 		address: '',
 		status: 'active' as 'active' | 'inactive'
 	};
+	let wasOpen = false;
 
-	$: if (isOpen) {
+	$: if (isOpen && !wasOpen) {
+		wasOpen = true;
 		if (employeeToEdit) {
 			formData = {
 				name: employeeToEdit.name,
@@ -40,20 +42,26 @@
 				status: 'active'
 			};
 		}
+	} else if (!isOpen) {
+		wasOpen = false;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		if (!formData.name) {
 			alert('Employee name is required.');
 			return;
 		}
 
-		if (employeeToEdit) {
-			employeeActions.update(employeeToEdit.id, formData);
-		} else {
-			employeeActions.add(formData);
+		try {
+			if (employeeToEdit) {
+				await employeeActions.update(employeeToEdit.id, formData);
+			} else {
+				await employeeActions.add(formData);
+			}
+			isOpen = false;
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save employee.');
 		}
-		isOpen = false;
 	}
 </script>
 

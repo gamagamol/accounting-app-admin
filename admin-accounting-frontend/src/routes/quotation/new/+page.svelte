@@ -1,5 +1,5 @@
 <script lang="ts">
-	import QuotationFormPage from '$lib/modules/quotation/QuotationFormPage.svelte';
+	import TransactionForm from '$lib/live/TransactionForm.svelte';
 </script>
 
-<QuotationFormPage />
+<TransactionForm type="quotation" />

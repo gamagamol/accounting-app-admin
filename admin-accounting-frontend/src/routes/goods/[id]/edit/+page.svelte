@@ -1,14 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import GoodsFormPage from '$lib/modules/goods/GoodsFormPage.svelte';
-	import { goodsReceipts } from '$lib/stores/dataStore';
+	import { goto } from '$app/navigation';
 
-	$: goodsId = $page.params.id ?? '';
-	$: goods = $goodsReceipts.find((item) => item.id === goodsId) ?? null;
+	onMount(() => {
+		goto(`/goods/${$page.params.id}`, { replaceState: true });
+	});
 </script>
 
-{#if goods}
-	<GoodsFormPage {goods} />
-{:else}
-	<p class="text-sm text-gray-500 dark:text-slate-400">Goods receipt not found.</p>
-{/if}
+<div class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+	Redirecting to detail...
+</div>

@@ -16,8 +16,10 @@
   let amount = 0;
   let method: 'cash' | 'transfer' | 'check' = 'transfer';
   let status: TransactionStatus = 'pending';
+  let wasOpen = false;
 
-  $: if (isOpen) {
+  $: if (isOpen && !wasOpen) {
+    wasOpen = true;
     if (billToEdit) {
       invoiceNo = billToEdit.invoiceNo;
       date = billToEdit.date;
@@ -34,6 +36,8 @@
       method = 'transfer';
       status = 'pending';
     }
+  } else if (!isOpen) {
+    wasOpen = false;
   }
 
   function handleSOChange(no: string) {

@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import DeliveryDetailPage from '$lib/modules/delivery/DeliveryDetailPage.svelte';
-
-	$: deliveryId = $page.params.id ?? '';
+	import TransactionDetailRoute from '$lib/live/TransactionDetailRoute.svelte';
 </script>
 
-<DeliveryDetailPage {deliveryId} />
+<TransactionDetailRoute type="delivery" />

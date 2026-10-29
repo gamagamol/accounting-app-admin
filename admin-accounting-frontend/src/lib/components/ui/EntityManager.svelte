@@ -27,8 +27,8 @@
 	export let canView: boolean = true;
 	export let formSize: 'md' | 'lg' | 'xl' | '2xl' | '3xl' = '2xl';
 	export let displayKey: string = '';
-	export let onSave: (payload: Record<string, any>, id?: string) => void = () => {};
-	export let onDelete: (id: string) => void = () => {};
+	export let onSave: (payload: Record<string, any>, id?: string) => void | Promise<void> = () => {};
+	export let onDelete: (id: string) => void | Promise<void> = () => {};
 
 	// Optional pending-approval integration for list/modal-only transactions.
 	// When set, the detail modal renders the shared pending panel and history.
@@ -111,7 +111,7 @@
 		isDetailOpen = true;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		for (const field of fields) {
 			const value = formData[field.key];
 			if (field.required && (value === '' || value === null || value === undefined)) {
@@ -125,14 +125,14 @@
 			const value = formData[field.key];
 			payload[field.key] = field.type === 'number' || field.type === 'currency' ? Number(value) || 0 : value;
 		}
-		onSave(payload, editingRow?.id);
+		await onSave(payload, editingRow?.id);
 		isFormOpen = false;
 	}
 
-	function handleDelete(row: any) {
+	async function handleDelete(row: any) {
 		const label = row[displayKey] ?? row.id;
 		if (confirm(`Delete ${entityName} "${label}"? This action cannot be undone.`)) {
-			onDelete(row.id);
+			await onDelete(row.id);
 		}
 	}
 

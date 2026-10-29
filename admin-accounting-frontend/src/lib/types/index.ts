@@ -67,7 +67,7 @@ export interface Employee {
 	status: 'active' | 'inactive';
 }
 
-// Department / Cost Center
+// Department
 export interface Department {
 	id: string;
 	code: string;
@@ -75,6 +75,46 @@ export interface Department {
 	manager: string;
 	costCenter: string;
 	status: 'active' | 'inactive';
+}
+
+// Cost Center
+export interface CostCenter {
+	id: string;
+	code: string;
+	name: string;
+	department: string;
+	status: 'active' | 'inactive';
+}
+
+// Product Category
+export interface ProductCategory {
+	id: string;
+	code: string;
+	name: string;
+	description: string;
+}
+
+// Payroll Component
+export interface PayrollComponent {
+	id: string;
+	code: string;
+	name: string;
+	componentType: 'earning' | 'deduction' | 'employer_contribution';
+	taxable: 'yes' | 'no';
+	coaCode: string;
+	isActive: 'active' | 'inactive';
+}
+
+// Application configuration (masterdata_config)
+export interface AppConfigEntry {
+	id: string;
+	key: string;
+	value: string;
+	group: string;
+	dataType: 'string' | 'number' | 'boolean' | 'json' | 'date';
+	description: string;
+	isPublic: 'yes' | 'no';
+	isEditable: 'yes' | 'no';
 }
 
 // Chart of Account

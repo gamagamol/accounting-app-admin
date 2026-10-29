@@ -1,8 +1,10 @@
 # Accounting Admin SvelteKit
 
 Frontend ERP accounting application built with SvelteKit 2, Svelte 4, and
-Tailwind CSS. The app uses mock data by default and can be connected to
-`admin-accounting-backend` through the API client.
+Tailwind CSS. Operational stores start empty; master data is hydrated from
+`admin-accounting-backend` through the live API client. Sales, purchase,
+inventory, budgeting, manual journal, and financial report pages all use
+backend data. There is no frontend mock transaction or report data.
 
 ## Requirements
 
@@ -23,13 +25,14 @@ Open `http://localhost:5173`.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `VITE_API_BASE_URL` | empty | Backend origin, for example `http://localhost:8080`. Do **not** append `/api`; the client adds it. |
+| `VITE_API_BASE_URL` | empty | Backend origin, for example `http://localhost:8081`. Do **not** append `/api`; the client adds `/api/v1`. |
 | `HOST` | `0.0.0.0` | Adapter-node bind host |
 | `PORT` | `3000` | Adapter-node port |
 | `ORIGIN` | `http://localhost:3000` | Public origin used by adapter-node |
 
-When `VITE_API_BASE_URL` is empty the API client runs in mock mode and records
-requests in the API monitor instead of calling the network.
+When `VITE_API_BASE_URL` is empty the API client records requests in the API
+monitor instead of calling the network. Operational stores remain empty and
+master-data hydration is skipped, so there is no seeded demo data.
 
 ## Scripts
 
@@ -118,6 +121,13 @@ Expense audit entries use `expense_entry`, while the pending table type is
 `src/lib/data/pending.ts` map between them. `budget_allocation` has no workflow
 status in the frontend, so it is not shown in the pending panel.
 
-List/modal-only transactions (journal entry, bank reconciliation, and period
-closing) render the same pending panel inside their `EntityManager` detail
-modal, so they have the same Pending/Approve/Reject flow and history table.
+Bank reconciliation and period closing render the same pending panel inside
+their `EntityManager` detail modal, so they have the same Pending/Approve/Reject
+flow and history table.
+
+Manual journal entry is a dedicated page at `/journal-entry`. It loads journals
+from `/api/v1/journals`, supports multi-line draft/post/edit/delete/unpost, and
+shows only posted journals in the financial reports. The general ledger, trial
+balance, profit & loss, balance sheet, and cash flow views are realtime
+(`30s` auto-refresh) and can lock/unlock a `YYYY-MM` period through
+`/api/v1/reports/:report/lock`.

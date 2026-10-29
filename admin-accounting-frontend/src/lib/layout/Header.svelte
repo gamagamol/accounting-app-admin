@@ -2,6 +2,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import { user, switchRole } from '$lib/stores/auth';
 	import { systemAlerts, alertActions } from '$lib/stores/dataStore';
+	import {
+		availableFiscalYears,
+		currentFiscalYear,
+		selectedFiscalYear
+	} from '$lib/stores/fiscal';
 	import { theme, toggleTheme } from '$lib/stores/theme';
 	import type { UserRole } from '$lib/types';
 
@@ -31,6 +36,11 @@
 	function handleSwitchRole(newRole: UserRole) {
 		switchRole(newRole);
 		showRoleSelector = false;
+	}
+
+	function handleFiscalYear(event: Event) {
+		const value = Number((event.currentTarget as HTMLSelectElement).value);
+		selectedFiscalYear.set(Number.isFinite(value) ? value : currentFiscalYear);
 	}
 </script>
 
@@ -79,6 +89,24 @@
 
 	<!-- Right: actions -->
 	<div class="flex items-center gap-1.5 sm:gap-3">
+		<!-- Fiscal year selector -->
+		<div class="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-2 py-1.5 sm:px-2.5">
+			<span class="hidden sm:inline text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">
+				Fiscal Year
+			</span>
+			<select
+				value={$selectedFiscalYear}
+				on:change={handleFiscalYear}
+				class="bg-transparent text-xs font-bold text-gray-800 dark:text-slate-100 focus:outline-none"
+				aria-label="Select fiscal year"
+			>
+				<option value={currentFiscalYear}>Current Financial Year</option>
+				{#each $availableFiscalYears.filter((year) => year !== currentFiscalYear) as year}
+					<option value={year}>{year}</option>
+				{/each}
+			</select>
+		</div>
+
 		<!-- Theme -->
 		<button
 			type="button"
@@ -245,19 +273,6 @@
 					<a href="/settings?tab=users" on:click={() => (showUserMenu = false)} class="flex items-center gap-2 px-4 py-2 text-xs text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800">
 						<span>👥</span><span>User management</span>
 					</a>
-
-					<div class="border-t border-gray-100 dark:border-slate-800 my-1"></div>
-
-					<button
-						type="button"
-						on:click={() => {
-							showUserMenu = false;
-							alert('You have been signed out of this demo session.');
-						}}
-						class="w-full text-left flex items-center gap-2 px-4 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
-					>
-						<span>🚪</span><span>Sign out</span>
-					</button>
 				</div>
 			{/if}
 		</div>

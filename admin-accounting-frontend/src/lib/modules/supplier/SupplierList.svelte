@@ -36,9 +36,13 @@
 		isDetailOpen = true;
 	}
 
-	function handleDelete(supplier: Supplier) {
+	async function handleDelete(supplier: Supplier) {
 		if (confirm(`Delete vendor "${supplier.companyName}"? This action cannot be undone.`)) {
-			supplierActions.delete(supplier.id);
+			try {
+				await supplierActions.delete(supplier.id);
+			} catch (error) {
+				alert(error instanceof Error ? error.message : 'Failed to delete supplier.');
+			}
 		}
 	}
 </script>

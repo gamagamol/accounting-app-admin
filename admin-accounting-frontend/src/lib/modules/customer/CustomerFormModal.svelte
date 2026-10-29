@@ -11,6 +11,7 @@
 	const inputClass =
 		'w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none';
 
+	let wasOpen = false;
 	let formData = {
 		companyName: '',
 		city: '',
@@ -25,7 +26,8 @@
 		notes: ''
 	};
 
-	$: if (isOpen) {
+	$: if (isOpen && !wasOpen) {
+		wasOpen = true;
 		if (customerToEdit) {
 			formData = {
 				companyName: customerToEdit.companyName,
@@ -55,9 +57,11 @@
 				notes: ''
 			};
 		}
+	} else if (!isOpen) {
+		wasOpen = false;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		if (!formData.companyName) {
 			alert('Company name is required.');
 			return;
@@ -67,12 +71,16 @@
 			return;
 		}
 
-		if (customerToEdit) {
-			customerActions.update(customerToEdit.id, formData);
-		} else {
-			customerActions.add(formData);
+		try {
+			if (customerToEdit) {
+				await customerActions.update(customerToEdit.id, formData);
+			} else {
+				await customerActions.add(formData);
+			}
+			isOpen = false;
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save customer.');
 		}
-		isOpen = false;
 	}
 </script>
 

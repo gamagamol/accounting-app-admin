@@ -20,8 +20,10 @@
 		city: '',
 		npwp: ''
 	};
+	let wasOpen = false;
 
-	$: if (isOpen) {
+	$: if (isOpen && !wasOpen) {
+		wasOpen = true;
 		if (supplierToEdit) {
 			formData = {
 				companyName: supplierToEdit.companyName,
@@ -43,20 +45,26 @@
 				npwp: ''
 			};
 		}
+	} else if (!isOpen) {
+		wasOpen = false;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		if (!formData.companyName) {
 			alert('Vendor name is required.');
 			return;
 		}
 
-		if (supplierToEdit) {
-			supplierActions.update(supplierToEdit.id, formData);
-		} else {
-			supplierActions.add(formData);
+		try {
+			if (supplierToEdit) {
+				await supplierActions.update(supplierToEdit.id, formData);
+			} else {
+				await supplierActions.add(formData);
+			}
+			isOpen = false;
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save supplier.');
 		}
-		isOpen = false;
 	}
 </script>
 

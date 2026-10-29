@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PurchaseList from '$lib/modules/purchase/PurchaseList.svelte';
+	import TransactionList from '$lib/live/TransactionList.svelte';
 </script>
 
-<PurchaseList />
+<TransactionList type="purchase-order" />

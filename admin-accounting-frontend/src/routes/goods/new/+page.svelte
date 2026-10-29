@@ -1,5 +1,5 @@
 <script lang="ts">
-	import GoodsFormPage from '$lib/modules/goods/GoodsFormPage.svelte';
+	import TransactionForm from '$lib/live/TransactionForm.svelte';
 </script>
 
-<GoodsFormPage />
+<TransactionForm type="goods-receipt" />

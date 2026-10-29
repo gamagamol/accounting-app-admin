@@ -13,7 +13,7 @@
 	export let fields: FieldDef[] = [];
 	export let values: any = {};
 	export let submitLabel: string = 'Save';
-	export let onSubmit: (payload: Record<string, any>) => void = () => {};
+	export let onSubmit: (payload: Record<string, any>) => void | Promise<void> = () => {};
 	export let auditEntityType: string = '';
 	export let auditEntityId: string = '';
 	export let documentNumber: string = '';
@@ -55,7 +55,7 @@
 		};
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		for (const field of fields) {
 			const value = form[field.key];
 			if (field.required && (value === '' || value === null || value === undefined)) {
@@ -70,7 +70,7 @@
 				field.type === 'number' || field.type === 'currency' ? Number(value) || 0 : value;
 		}
 		payload.description = textValue(form.description);
-		onSubmit(payload);
+		await onSubmit(payload);
 	}
 </script>
 

@@ -42,9 +42,13 @@
 		isDetailOpen = true;
 	}
 
-	function handleDelete(customer: Customer) {
+	async function handleDelete(customer: Customer) {
 		if (confirm(`Delete customer "${customer.companyName}"? This action cannot be undone.`)) {
-			customerActions.delete(customer.id);
+			try {
+				await customerActions.delete(customer.id);
+			} catch (error) {
+				alert(error instanceof Error ? error.message : 'Failed to delete customer.');
+			}
 		}
 	}
 </script>

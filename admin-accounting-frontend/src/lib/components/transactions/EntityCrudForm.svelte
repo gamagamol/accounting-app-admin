@@ -13,15 +13,24 @@
 	$: title = record ? `Edit ${definition.createTitle}` : `New ${definition.createTitle}`;
 	$: documentNumber = record?.[definition.displayKey] ?? 'Draft document';
 
-	function handleSubmit(payload: Record<string, any>) {
+	async function handleSubmit(payload: Record<string, any>) {
 		const before = record ? (record as Record<string, unknown>) : null;
 		let saved: any;
 
-		if (record) {
-			definition.updateRecord(record.id, payload);
-			saved = { ...record, ...payload };
-		} else {
-			saved = definition.createRecord(payload);
+		try {
+			if (record) {
+				await definition.updateRecord(record.id, payload);
+				saved = { ...record, ...payload };
+			} else {
+				saved = await definition.createRecord(payload);
+			}
+		} catch (error) {
+			alert(error instanceof Error ? error.message : `Failed to save ${definition.entityName}.`);
+			return;
+		}
+
+		if (!saved) {
+			saved = { ...payload };
 		}
 
 		auditLogActions.record({

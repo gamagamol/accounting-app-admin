@@ -3,7 +3,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
 	import type { Product } from '$lib/types';
-	import { productActions, unitsOfMeasurement } from '$lib/stores/dataStore';
+	import { productActions, productCategories, unitsOfMeasurement } from '$lib/stores/dataStore';
 	import { formatCurrency } from '$lib/utils/formatters';
 
 	export let isOpen: boolean = false;
@@ -13,7 +13,7 @@
 		code: '',
 		name: '',
 		itemType: 'goods',
-		category: 'Raw Materials',
+		category: '',
 		unit: 'PCS',
 		secondaryUnit: '',
 		conversionRate: 0,
@@ -27,6 +27,7 @@
 	};
 
 	let showMeasurement = true;
+	let wasOpen = false;
 
 	$: baseUnitOptions = $unitsOfMeasurement.filter((unit) =>
 		formData.itemType === 'goods'
@@ -36,7 +37,12 @@
 
 	$: secondaryUnitOptions = $unitsOfMeasurement.filter((unit) => unit.category !== 'Service');
 
-	$: if (isOpen) {
+	function defaultCategoryFor(_type: 'goods' | 'service'): string {
+		return $productCategories[0]?.name ?? '';
+	}
+
+	$: if (isOpen && !wasOpen) {
+		wasOpen = true;
 		if (productToEdit) {
 			const baseUnit =
 				$unitsOfMeasurement.find(
@@ -67,7 +73,7 @@
 				code: '',
 				name: '',
 				itemType: 'goods',
-				category: 'Raw Materials',
+				category: defaultCategoryFor('goods'),
 				unit: 'PCS',
 				secondaryUnit: '',
 				conversionRate: 0,
@@ -81,6 +87,8 @@
 			};
 			showMeasurement = true;
 		}
+	} else if (!isOpen) {
+		wasOpen = false;
 	}
 
 	function selectType(type: 'goods' | 'service') {
@@ -92,14 +100,14 @@
 			formData.weightKg = 0;
 			formData.stock = 0;
 			formData.minStock = 0;
-			formData.category = 'Professional Services';
+			formData.category = defaultCategoryFor('service');
 		} else {
 			formData.unit = 'PCS';
-			formData.category = 'Raw Materials';
+			formData.category = defaultCategoryFor('goods');
 		}
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		if (!formData.name) {
 			alert('Product name is required.');
 			return;
@@ -120,12 +128,16 @@
 			minStock: formData.itemType === 'goods' ? Number(formData.minStock) || 0 : 0
 		};
 
-		if (productToEdit) {
-			productActions.update(productToEdit.id, payload);
-		} else {
-			productActions.add(payload);
+		try {
+			if (productToEdit) {
+				await productActions.update(productToEdit.id, payload);
+			} else {
+				await productActions.add(payload);
+			}
+			isOpen = false;
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save product.');
 		}
-		isOpen = false;
 	}
 </script>
 
@@ -172,7 +184,7 @@
 					id="name"
 					type="text"
 					bind:value={formData.name}
-					placeholder="e.g. A4 Copy Paper 80gsm"
+					placeholder="e.g. Papan Tulis Whiteboard 120x240"
 					class="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
 					required
 				/>
@@ -194,20 +206,11 @@
 					bind:value={formData.category}
 					class="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
 				>
-					{#if formData.itemType === 'goods'}
-						<option value="Raw Materials">Raw Materials</option>
-						<option value="Hardware & Tools">Hardware & Tools</option>
-						<option value="Office Stationery">Office Stationery</option>
-						<option value="IT Supplies">IT Supplies</option>
-						<option value="Furniture">Furniture</option>
-						<option value="Electronics">Electronics</option>
-						<option value="Consumables">Consumables</option>
-					{:else}
-						<option value="Professional Services">Professional Services</option>
-						<option value="Technical Services">Technical Services</option>
-						<option value="Maintenance Services">Maintenance Services</option>
-						<option value="Consulting">Consulting</option>
-						<option value="Installation">Installation</option>
+					{#each $productCategories as category}
+						<option value={category.name}>{category.name}</option>
+					{/each}
+					{#if formData.category && !$productCategories.some((category) => category.name === formData.category)}
+						<option value={formData.category}>{formData.category} (legacy)</option>
 					{/if}
 				</select>
 			</FormField>

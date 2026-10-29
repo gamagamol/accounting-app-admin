@@ -4,6 +4,7 @@
 	export let href: string = '';
 	export let type: 'button' | 'submit' | 'reset' = 'button';
 	export let disabled: boolean = false;
+	export let title: string = '';
 
 	const variantClasses: Record<string, string> = {
 		primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-600/20',
@@ -27,6 +28,7 @@
 {#if href}
 	<a
 		{href}
+		{title}
 		on:click
 		class="inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors {variantClasses[variant]} {sizeClasses[size]} {disabled ? 'opacity-50 pointer-events-none' : ''}"
 	>
@@ -36,6 +38,7 @@
 	<button
 		{type}
 		{disabled}
+		{title}
 		on:click
 		class="inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors {variantClasses[variant]} {sizeClasses[size]} {disabled ? 'opacity-50 cursor-not-allowed' : ''}"
 	>

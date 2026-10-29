@@ -13,8 +13,10 @@
   let date = new Date().toISOString().split('T')[0];
   let amount = 0;
   let method: 'cash' | 'transfer' | 'check' = 'transfer';
+  let wasOpen = false;
 
-  $: if (isOpen) {
+  $: if (isOpen && !wasOpen) {
+    wasOpen = true;
     if (debtToEdit) {
       purchaseNo = debtToEdit.purchaseNo;
       supplierName = debtToEdit.supplierName;
@@ -29,6 +31,8 @@
       amount = firstPO?.total || 15000000;
       method = 'transfer';
     }
+  } else if (!isOpen) {
+    wasOpen = false;
   }
 
   function handlePOChange(poNo: string) {

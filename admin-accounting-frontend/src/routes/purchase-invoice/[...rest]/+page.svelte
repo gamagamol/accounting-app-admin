@@ -1,7 +1,5 @@
 <script lang="ts">
-	import EntityCrudRoute from '$lib/components/transactions/EntityCrudRoute.svelte';
-	import { purchaseInvoiceDefinition } from '$lib/components/transactions/crudDefinitions';
-	import { purchaseInvoices } from '$lib/stores/dataStore';
+	import TransactionCatchAll from '$lib/live/TransactionCatchAll.svelte';
 </script>
 
-<EntityCrudRoute definition={purchaseInvoiceDefinition} store={purchaseInvoices} />
+<TransactionCatchAll type="purchase-invoice" />

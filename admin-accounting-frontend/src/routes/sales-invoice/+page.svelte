@@ -1,7 +1,5 @@
 <script lang="ts">
-	import EntityCrudList from '$lib/components/transactions/EntityCrudList.svelte';
-	import { salesInvoiceDefinition } from '$lib/components/transactions/crudDefinitions';
-	import { billPayments } from '$lib/stores/dataStore';
+	import TransactionList from '$lib/live/TransactionList.svelte';
 </script>
 
-<EntityCrudList definition={salesInvoiceDefinition} store={billPayments} />
+<TransactionList type="sales-invoice" />

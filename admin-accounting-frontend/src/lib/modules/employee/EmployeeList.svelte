@@ -37,9 +37,13 @@
 		isDetailOpen = true;
 	}
 
-	function handleDelete(emp: Employee) {
+	async function handleDelete(emp: Employee) {
 		if (confirm(`Delete employee "${emp.name}"? This action cannot be undone.`)) {
-			employeeActions.delete(emp.id);
+			try {
+				await employeeActions.delete(emp.id);
+			} catch (error) {
+				alert(error instanceof Error ? error.message : 'Failed to delete employee.');
+			}
 		}
 	}
 </script>

@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import QuotationDetailPage from '$lib/modules/quotation/QuotationDetailPage.svelte';
-
-	$: quotationId = $page.params.id ?? '';
+	import TransactionDetailRoute from '$lib/live/TransactionDetailRoute.svelte';
 </script>
 
-<QuotationDetailPage {quotationId} />
+<TransactionDetailRoute type="quotation" />

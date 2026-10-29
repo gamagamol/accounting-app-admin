@@ -1,5 +1,5 @@
 <script lang="ts">
-  import GoodsList from '$lib/modules/goods/GoodsList.svelte';
+	import TransactionList from '$lib/live/TransactionList.svelte';
 </script>
 
-<GoodsList />
+<TransactionList type="goods-receipt" />

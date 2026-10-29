@@ -32,9 +32,21 @@
 		{ key: 'balance', label: 'Current Balance', type: 'currency' }
 	];
 
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) bankAccountActions.update(id, payload);
-		else bankAccountActions.add(payload as any);
+	async function handleSave(payload: Record<string, any>, id?: string) {
+		try {
+			if (id) await bankAccountActions.update(id, payload);
+			else await bankAccountActions.add(payload as any);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save bank account.');
+		}
+	}
+
+	async function handleDelete(id: string) {
+		try {
+			await bankAccountActions.delete(id);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to delete bank account.');
+		}
 	}
 </script>
 
@@ -50,5 +62,5 @@
 	createLabel="Add Account"
 	displayKey="bankName"
 	onSave={handleSave}
-	onDelete={(id) => bankAccountActions.delete(id)}
+	onDelete={handleDelete}
 />

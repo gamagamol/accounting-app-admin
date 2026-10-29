@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PurchaseFormPage from '$lib/modules/purchase/PurchaseFormPage.svelte';
+	import TransactionForm from '$lib/live/TransactionForm.svelte';
 </script>
 
-<PurchaseFormPage />
+<TransactionForm type="purchase-order" />

@@ -17,8 +17,10 @@
 		category: 'Asset' as ChartOfAccount['category'],
 		balance: 0
 	};
+	let wasOpen = false;
 
-	$: if (isOpen) {
+	$: if (isOpen && !wasOpen) {
+		wasOpen = true;
 		if (coaToEdit) {
 			formData = {
 				code: coaToEdit.code,
@@ -34,20 +36,26 @@
 				balance: 0
 			};
 		}
+	} else if (!isOpen) {
+		wasOpen = false;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		if (!formData.code || !formData.name) {
 			alert('Account code and account name are required.');
 			return;
 		}
 
-		if (coaToEdit) {
-			coaActions.update(coaToEdit.id, formData);
-		} else {
-			coaActions.add(formData);
+		try {
+			if (coaToEdit) {
+				await coaActions.update(coaToEdit.id, formData);
+			} else {
+				await coaActions.add(formData);
+			}
+			isOpen = false;
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save account.');
 		}
-		isOpen = false;
 	}
 </script>
 

@@ -68,97 +68,6 @@
 		}
 	];
 
-	const sampleBudget = {
-		budgetNo: 'BUD/2024/006',
-		fiscalYear: 2024,
-		name: 'Marketing Campaign Budget 2024',
-		departmentCode: 'SAL',
-		departmentName: 'Sales & Marketing',
-		totalAmount: 150000000,
-		status: 'draft',
-		preparedBy: 'Rina Kusuma',
-		notes: 'Digital campaign and exhibition'
-	};
-
-	const sampleAllocation = {
-		budgetId: 'bud-002',
-		budgetNo: 'BUD/2024/002',
-		fiscalYear: 2024,
-		accountCode: '6-9000',
-		accountName: 'Other Operating Expenses',
-		departmentCode: 'SAL',
-		departmentName: 'Sales & Marketing',
-		allocatedAmount: 50000000,
-		usedAmount: 0,
-		notes: 'Digital campaign allocation'
-	};
-
-	const sampleExpense = {
-		date: '2024-04-30',
-		expenseNo: 'EXP/2024/010',
-		expenseType: 'office_supplies',
-		category: 'Office Supplies (ATK)',
-		accountCode: '6-1200',
-		accountName: 'Office Supplies (ATK)',
-		departmentCode: 'FIN',
-		departmentName: 'Finance & Accounting',
-		budgetId: 'bud-003',
-		budgetNo: 'BUD/2024/003',
-		employeeId: '',
-		employeeName: '',
-		supplierName: 'PT Sumber ATK Nusantara',
-		description: 'Monthly stationery restock',
-		amount: 2750000,
-		taxAmount: 302500,
-		totalAmount: 3052500,
-		paymentMethod: 'Petty Cash',
-		bankAccount: 'PETTY-01',
-		paidTo: 'PT Sumber ATK Nusantara',
-		status: 'draft',
-		attachmentUrl: 'atk-invoice.pdf',
-		notes: '',
-		submittedBy: 'Nurul Hidayah',
-		approvedBy: '',
-		postedAt: '',
-		glReference: ''
-	};
-
-	const sampleRevision = {
-		revisionNo: 'REV/2024/004',
-		budgetId: 'bud-001',
-		budgetNo: 'BUD/2024/001',
-		date: '2024-04-30',
-		requestedBy: 'Dedi Kurniawan',
-		currentAmount: 720000000,
-		requestedAmount: 780000000,
-		difference: 60000000,
-		reason: 'Additional preventive maintenance for aging CNC machines.',
-		status: 'pending'
-	};
-
-	const samplePending = {
-		transactionType: 'quotation',
-		transactionId: 'qt-001',
-		transactionNumber: 'QUO/2024/001',
-		requestedBy: 'Ahmad Fauzi',
-		pendingMessage: 'Customer requested a revised unit price before we continue.',
-		actorRole: 'SALES_ADMIN'
-	};
-
-	const samplePendingDecision = {
-		actor: 'Dewi Sartika',
-		actorRole: 'OWNER',
-		decisionMessage: 'Approved after checking the margin.'
-	};
-
-	const samples = [
-		{ label: 'POST /api/budgeting/budgets', payload: sampleBudget },
-		{ label: 'POST /api/budgeting/allocations', payload: sampleAllocation },
-		{ label: 'POST /api/expenses', payload: sampleExpense },
-		{ label: 'POST /api/budgeting/revisions', payload: sampleRevision },
-		{ label: 'POST /api/pending', payload: samplePending },
-		{ label: 'POST /api/pending/:type/:id/approve', payload: samplePendingDecision }
-	];
 </script>
 
 <div class="space-y-6">
@@ -179,7 +88,7 @@
 			<p class="text-[10px] uppercase tracking-wider text-gray-500 dark:text-slate-400">Mode</p>
 			<p class="mt-1"><Badge status={isApiConfigured ? 'active' : 'pending'} label={isApiConfigured ? 'Live API' : 'Mock capture'} /></p>
 			<p class="mt-1 text-[11px] text-gray-500 dark:text-slate-400">
-				Mock mode logs every payload locally and keeps the UI usable until the backend is connected.
+				No sample transaction data is loaded. Requests are captured here as they happen.
 			</p>
 		</div>
 		<div class="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
@@ -218,17 +127,6 @@
 			</div>
 		</div>
 	{/each}
-
-	<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-		{#each samples as sample}
-			<div class="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-				<div class="px-4 py-2.5 border-b border-gray-200 dark:border-slate-800">
-					<p class="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-300">{sample.label}</p>
-				</div>
-				<pre class="overflow-x-auto bg-slate-950 text-emerald-300 text-[11px] p-4">{JSON.stringify(sample.payload, null, 2)}</pre>
-			</div>
-		{/each}
-	</div>
 
 	<div class="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
 		<div class="px-4 py-3 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">

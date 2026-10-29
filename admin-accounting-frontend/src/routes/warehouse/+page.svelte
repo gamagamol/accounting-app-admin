@@ -32,9 +32,21 @@
 		}
 	];
 
-	function handleSave(payload: Record<string, any>, id?: string) {
-		if (id) warehouseActions.update(id, payload);
-		else warehouseActions.add(payload as any);
+	async function handleSave(payload: Record<string, any>, id?: string) {
+		try {
+			if (id) await warehouseActions.update(id, payload);
+			else await warehouseActions.add(payload as any);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to save warehouse.');
+		}
+	}
+
+	async function handleDelete(id: string) {
+		try {
+			await warehouseActions.delete(id);
+		} catch (error) {
+			alert(error instanceof Error ? error.message : 'Failed to delete warehouse.');
+		}
 	}
 </script>
 
@@ -50,5 +62,5 @@
 	createLabel="Add Warehouse"
 	displayKey="name"
 	onSave={handleSave}
-	onDelete={(id) => warehouseActions.delete(id)}
+	onDelete={handleDelete}
 />

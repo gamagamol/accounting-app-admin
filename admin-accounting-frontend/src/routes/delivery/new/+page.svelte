@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DeliveryFormPage from '$lib/modules/delivery/DeliveryFormPage.svelte';
+	import TransactionForm from '$lib/live/TransactionForm.svelte';
 </script>
 
-<DeliveryFormPage />
+<TransactionForm type="delivery" />

@@ -11,11 +11,13 @@
 	let name = '';
 	let email = '';
 	let role: UserRole = 'SALES_ADMIN';
+	let wasOpen = false;
 
 	const inputClass =
 		'w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none';
 
-	$: if (isOpen) {
+	$: if (isOpen && !wasOpen) {
+		wasOpen = true;
 		if (userToEdit) {
 			name = userToEdit.name;
 			email = userToEdit.email;
@@ -25,6 +27,8 @@
 			email = '';
 			role = 'SALES_ADMIN';
 		}
+	} else if (!isOpen) {
+		wasOpen = false;
 	}
 
 	function handleSubmit() {
@@ -61,6 +65,12 @@
 				<option value="OWNER">OWNER / DIRECTOR (Reports & Revenue Monitoring)</option>
 			</select>
 		</FormField>
+
+		{#if !userToEdit}
+			<p class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+				New users can sign in with the temporary password <code class="font-semibold">changeme</code>.
+			</p>
+		{/if}
 	</form>
 
 	<svelte:fragment slot="footer">

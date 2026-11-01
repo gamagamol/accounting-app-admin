@@ -26,7 +26,12 @@
 	} from '$lib/data/accounting-options';
 	import { formatCurrency } from '$lib/utils/formatters';
 	import type { ExpenseEntry, ExpenseStatus, ExpenseType } from '$lib/types';
-	import type { CreateExpensePayload } from '$lib/api/types';
+
+	import {
+  mapExpenseToApi,
+  type ExpenseApiReferences,
+  type CreateExpensePayload,
+} from '$lib/api/types';
 
 	export let expense: ExpenseEntry | null = null;
 
@@ -197,6 +202,9 @@
 		form.paidTo = form.supplierName;
 	}
 
+	/*
+	
+
 	async function save() {
 		if (!form.date || !form.expenseNo.trim() || !form.description.trim()) {
 			alert('Date, expense number and description are required.');
@@ -219,6 +227,9 @@
 			postedAt: expense?.postedAt ?? form.postedAt,
 			glReference: expense?.glReference ?? form.glReference
 		};
+
+		console.log("payload expense:",payload);
+		
 
 		const before = expense ? (expense as unknown as Record<string, unknown>) : null;
 		saving = true;
@@ -253,6 +264,174 @@
 			saving = false;
 		}
 	}
+
+	*/
+
+	async function save() {
+	if (!form.date || !form.expenseNo.trim() || !form.description.trim()) {
+		alert('Date, expense number and description are required.');
+		return;
+	}
+
+	if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) {
+		alert('Expense amount must be greater than zero.');
+		return;
+	}
+
+	if (!form.departmentCode) {
+		alert('Department is required for budget control.');
+		return;
+	}
+
+	const payload: CreateExpensePayload = {
+		...form,
+		amount: Number(form.amount),
+		taxAmount: Number(form.taxAmount) || 0,
+		totalAmount,
+		submittedBy: form.submittedBy || $user?.name || '',
+		approvedBy: expense?.approvedBy ?? form.approvedBy,
+		postedAt: expense?.postedAt ?? form.postedAt,
+		glReference: expense?.glReference ?? form.glReference
+	};
+
+	const before = expense
+		? (expense as unknown as Record<string, unknown>)
+		: null;
+
+	saving = true;
+
+	try {
+		// Cari record master berdasarkan nilai yang dipilih di form.
+		const selectedAccount = $chartOfAccounts.find(
+			(item) =>
+				item.code === payload.accountCode &&
+				item.category === 'Expense'
+		);
+
+		const selectedDepartment = $departments.find(
+			(item) => item.code === payload.departmentCode
+		);
+
+		const selectedBudget = $annualBudgets.find(
+			(item) => String(item.id) === String(payload.budgetId)
+		);
+
+		const selectedEmployee = $employees.find(
+			(item) => String(item.id) === String(payload.employeeId)
+		);
+
+		const selectedSupplier = $suppliers.find(
+			(item) =>
+				item.companyName === payload.supplierName ||
+				item.name === payload.supplierName
+		);
+
+		const selectedBankAccount = $bankAccounts.find(
+			(item) => item.code === payload.bankAccount
+		);
+
+		// Backend mengharapkan primary key numerik, bukan kode akun.
+		const toNumericId = (value: unknown): number | null => {
+			if (value === null || value === undefined || value === '') {
+				return null;
+			}
+
+			const id = Number(value);
+
+			return Number.isSafeInteger(id) && id > 0 ? id : null;
+		};
+
+		const coaId = toNumericId(selectedAccount?.id);
+
+		if (coaId === null) {
+			throw new Error(
+				`Database ID for expense account "${payload.accountCode}" was not found.`
+			);
+		}
+
+		if (!selectedDepartment) {
+			throw new Error(
+				`Department "${payload.departmentCode}" was not found.`
+			);
+		}
+
+		const references: ExpenseApiReferences = {
+			departmentId: toNumericId(selectedDepartment.id),
+
+			// Isi setelah ID cost center dan budget allocation tersedia
+			// dari master data backend.
+			costCenterId: null,
+			budgetPlanId: toNumericId(selectedBudget?.id),
+			budgetAllocationId: null,
+
+			employeeId: toNumericId(selectedEmployee?.id),
+			supplierId: toNumericId(selectedSupplier?.id),
+			bankAccountId: toNumericId(selectedBankAccount?.id),
+
+			preparedBy: toNumericId($user?.id),
+			coaId,
+			taxRateId: null
+		};
+
+		if (references.departmentId === null) {
+			throw new Error(
+				'Department database ID is missing or is not numeric.'
+			);
+		}
+
+		const apiPayload = mapExpenseToApi(payload, references);
+
+		console.log('Expense form payload:', payload);
+		console.log('Expense API request:', apiPayload);
+
+		let saved: ExpenseEntry;
+
+		if (expense) {
+			// UPDATE
+			await expensesApi.update(expense.id, payload);
+
+			expenseActions.update(expense.id, payload);
+
+			saved = {
+				...expense,
+				...payload
+			} as ExpenseEntry;
+		} else {
+			// CREATE — kirim payload dengan format sesuai DTO backend Rust.
+			await expensesApi.create(apiPayload);
+
+			// Pertahankan struktur store frontend yang menggunakan camelCase.
+			saved = expenseActions.add(
+				payload as Omit<ExpenseEntry, 'id'>
+			);
+		}
+
+		auditLogActions.record({
+			module: 'budgeting',
+			entityType: 'expense_entry',
+			entityId: saved.id,
+			documentNumber: saved.expenseNo,
+			action: expense ? 'update' : 'create',
+			actor: $user?.name || 'Expense Owner',
+			summary: `${expense ? 'Updated' : 'Created'} expense ${saved.expenseNo} — ${saved.description}.`,
+			description: saved.description,
+			before,
+			after: saved as unknown as Record<string, unknown>
+		});
+
+		goto(`/expenses/${saved.id}`);
+	} catch (error) {
+		console.error('Failed to save expense:', error);
+
+		alert(
+			error instanceof Error
+				? error.message
+				: 'Failed to save expense.'
+		);
+	} finally {
+		saving = false;
+	}
+}
 
 	function handleCancel() {
 		goto(backHref);

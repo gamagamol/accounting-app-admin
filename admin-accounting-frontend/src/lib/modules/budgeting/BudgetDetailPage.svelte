@@ -7,7 +7,7 @@
 	import AuditLogPanel from '$lib/components/ui/AuditLogPanel.svelte';
 	import PendingApprovalPanel from '$lib/components/transactions/PendingApprovalPanel.svelte';
 	import TransactionPageShell from '$lib/components/transactions/TransactionPageShell.svelte';
-	import { annualBudgets, budgetAllocations, budgetingActions, auditLogActions } from '$lib/stores/dataStore';
+	import { annualBudgets, budgetAllocations, budgetingActions, hydrateBudgetingData } from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import { formatCurrency, formatDate, formatPercent } from '$lib/utils/formatters';
@@ -31,36 +31,18 @@
 		if (!current) return;
 		working = true;
 		errorMessage = '';
-		const before = current as unknown as Record<string, unknown>;
 		const actor = $user?.name || 'Budget Approver';
 		try {
 			if (action === 'submit') {
-				await budgetingApi.submitBudget(current.id);
-				budgetingActions.submitBudget(current.id);
+				await budgetingApi.submitBudget(current.id, actor);
 			} else if (action === 'approve') {
 				await budgetingApi.approveBudget(current.id, { approvedBy: actor });
-				budgetingActions.approveBudget(current.id, actor);
 			} else if (action === 'reject') {
 				await budgetingApi.rejectBudget(current.id, { approvedBy: actor });
-				budgetingActions.rejectBudget(current.id);
 			} else {
-				await budgetingApi.closeBudget(current.id);
-				budgetingActions.closeBudget(current.id);
+				await budgetingApi.closeBudget(current.id, actor);
 			}
-
-			const nextStatus = action === 'submit' ? 'pending' : action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'completed';
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'annual_budget',
-				entityId: current.id,
-				documentNumber: current.budgetNo,
-				action: action === 'submit' ? 'submit' : action === 'close' ? 'close' : action,
-				actor,
-				summary: `${action === 'submit' ? 'Submitted' : action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Closed'} annual budget ${current.budgetNo}.`,
-				description: current.description ?? current.message ?? `Budget ${current.budgetNo} ${action === 'submit' ? 'submitted for approval' : action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'closed'}.`,
-				before,
-				after: { ...current, status: nextStatus } as unknown as Record<string, unknown>
-			});
+			await hydrateBudgetingData();
 		} catch (error) {
 			errorMessage = getErrorMessage(error, 'Action failed.');
 		} finally {
@@ -74,18 +56,8 @@
 		const currentBudget = current;
 		try {
 			await budgetingApi.deleteBudget(currentBudget.id);
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'annual_budget',
-				entityId: currentBudget.id,
-				documentNumber: currentBudget.budgetNo,
-				action: 'delete',
-				actor: $user?.name || 'Budget Owner',
-				summary: `Deleted annual budget ${currentBudget.budgetNo}.`,
-				description: currentBudget.description ?? currentBudget.message,
-				before: currentBudget as unknown as Record<string, unknown>
-			});
 			budgetingActions.deleteBudget(currentBudget.id);
+			await hydrateBudgetingData();
 			goto('/budgets');
 		} catch (error) {
 			errorMessage = getErrorMessage(error, 'Failed to delete budget.');
@@ -208,7 +180,11 @@
 			status={current.status}
 		/>
 
-		<AuditLogPanel entityType="annual_budget" entityId={current.id} />
+		<AuditLogPanel
+			entityType="budget_plan"
+			entityId={current.id}
+			rootTransactionId={current.rootTransactionId ?? ''}
+		/>
 	{:else}
 		<div class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
 			<p class="text-sm font-semibold text-gray-700 dark:text-slate-200">Budget not found.</p>

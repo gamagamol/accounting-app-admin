@@ -6,14 +6,16 @@
 	import TransactionPageShell from '$lib/components/transactions/TransactionPageShell.svelte';
 	import {
 		annualBudgets,
-		budgetingActions,
 		departments,
-		auditLogActions
+		hydrateBudgetingData
 	} from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import type { AnnualBudget } from '$lib/types';
-	import type { CreateAnnualBudgetPayload } from '$lib/api/types';
+	import {
+		mapBudgetToApi,
+		type CreateAnnualBudgetPayload
+	} from '$lib/api/types';
 	import { transactionStatusOptions } from '$lib/data/transaction-statuses';
 
 	export let budget: AnnualBudget | null = null;
@@ -91,35 +93,23 @@
 		}
 
 		saving = true;
-		const before = budget ? (budget as unknown as Record<string, unknown>) : null;
 		try {
-			let saved: AnnualBudget;
-			if (budget) {
-				await budgetingApi.updateBudget(budget.id, form);
-				budgetingActions.updateBudget(budget.id, form);
-				saved = { ...budget, ...form };
-			} else {
-				await budgetingApi.createBudget(form);
-				saved = budgetingActions.addBudget({
-					...form,
-					createdAt: new Date().toISOString().split('T')[0],
-					approvedBy: ''
-				});
-			}
-
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'annual_budget',
-				entityId: saved.id,
-				documentNumber: saved.budgetNo,
-				action: budget ? 'update' : 'create',
-				actor: $user?.name || 'Budget Owner',
-				summary: `${budget ? 'Updated' : 'Created'} annual budget ${saved.budgetNo} — ${saved.name}.`,
-				description: form.description,
-				before,
-				after: saved as unknown as Record<string, unknown>
+			const selectedDepartment = $departments.find(
+				(item) => item.code === form.departmentCode
+			);
+			const preparedBy = Number($user?.id);
+			const apiPayload = mapBudgetToApi(form, {
+				departmentId: selectedDepartment ? Number(selectedDepartment.id) : null,
+				preparedBy: Number.isSafeInteger(preparedBy) && preparedBy > 0 ? preparedBy : null
 			});
+			if (!budget) apiPayload.budget_number = null;
 
+			const result = budget
+				? await budgetingApi.updateBudget(budget.id, apiPayload)
+				: await budgetingApi.createBudget(apiPayload);
+			const saved = result.data;
+
+			await hydrateBudgetingData();
 			goto(`/budgets/${saved.id}`);
 		} catch (error) {
 			alert(error instanceof Error ? error.message : 'Failed to save budget.');
@@ -250,6 +240,10 @@
 	</form>
 
 	{#if budget}
-		<AuditLogPanel entityType="annual_budget" entityId={budget.id} />
+		<AuditLogPanel
+			entityType="budget_plan"
+			entityId={budget.id}
+			rootTransactionId={budget.rootTransactionId ?? ''}
+		/>
 	{/if}
 </TransactionPageShell>

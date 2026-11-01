@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EntityDetailPage from '$lib/components/transactions/EntityDetailPage.svelte';
-	import { annualBudgets, budgetAllocations, budgetingActions, auditLogActions } from '$lib/stores/dataStore';
+	import { annualBudgets, budgetAllocations, hydrateBudgetingData } from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import { getErrorMessage } from '$lib/utils/errors';
@@ -43,30 +43,16 @@
 
 	async function decide(decision: 'approve' | 'reject' | 'close') {
 		if (!current) return;
-		const before = { ...current } as unknown as Record<string, unknown>;
 		working = true;
 		try {
 			if (decision === 'approve') {
 				await budgetingApi.approveBudget(current.id, { approvedBy: $user?.name });
-				budgetingActions.approveBudget(current.id, $user?.name);
 			} else if (decision === 'reject') {
 				await budgetingApi.rejectBudget(current.id, { approvedBy: $user?.name });
-				budgetingActions.rejectBudget(current.id);
 			} else {
-				await budgetingApi.closeBudget(current.id);
-				budgetingActions.closeBudget(current.id);
+				await budgetingApi.closeBudget(current.id, $user?.name);
 			}
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'annual_budget',
-				entityId: current.id,
-				documentNumber: current.budgetNo,
-				action: decision,
-				actor: $user?.name || 'Budget Approver',
-				summary: `${decision === 'approve' ? 'Approved' : decision === 'reject' ? 'Rejected' : 'Closed'} budget ${current.budgetNo} — ${current.name}.`,
-				before,
-				after: { ...current, status: decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'completed' } as unknown as Record<string, unknown>
-			});
+			await hydrateBudgetingData();
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to update budget status.'));
 		} finally {

@@ -9,6 +9,7 @@ use super::transactions_dto::{
     TransactionResponse,
 };
 use super::transactions_interfaces::ITransactionUsecase;
+use crate::pkg::response::api_json::ApiJson;
 use crate::pkg::response::response_error::{AppError, AppResult};
 use crate::pkg::response::response_success::ApiResponse;
 
@@ -42,7 +43,7 @@ impl TransactionHandler {
     pub async fn create(
         Extension(usecase): Extension<Arc<dyn ITransactionUsecase>>,
         Path(document_type): Path<DocumentType>,
-        Json(dto): Json<CreateTransactionDto>,
+        ApiJson(dto): ApiJson<CreateTransactionDto>,
     ) -> AppResult<(StatusCode, Json<ApiResponse<TransactionResponse>>)> {
         let created = usecase.create(document_type, dto).await?;
         Ok((
@@ -57,7 +58,7 @@ impl TransactionHandler {
     pub async fn approve(
         Extension(usecase): Extension<Arc<dyn ITransactionUsecase>>,
         Path((document_type, id)): Path<(DocumentType, i64)>,
-        Json(dto): Json<ApproveTransactionDto>,
+        ApiJson(dto): ApiJson<ApproveTransactionDto>,
     ) -> AppResult<Json<ApiResponse<TransactionResponse>>> {
         if !document_type.is_approvable() {
             return Err(AppError::BadRequest(format!(

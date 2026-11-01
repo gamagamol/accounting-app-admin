@@ -54,6 +54,8 @@ import { auditApi } from '$lib/api/audit';
 import { pendingApi } from '$lib/api/pending';
 import { masterDataApi } from '$lib/api/master';
 import { periodsApi } from '$lib/api/periods';
+import { budgetingApi } from '$lib/api/budgeting';
+import { expensesApi } from '$lib/api/expenses';
 import { isApiConfigured } from '$lib/api/client';
 
 // --- Audit Trail ---
@@ -165,13 +167,31 @@ export const auditLogActions = {
 
 		auditLogs.update((list) => [entry, ...list]);
 
-		if (isApiConfigured) {
-			void auditApi.create(entry).catch((error) => {
-				console.warn(`[audit] failed to persist audit entry ${entry.id}`, error);
-			});
-		}
-
 		return entry;
+	},
+
+	/**
+	 * Load the chronological lifecycle for a root transaction. Backend audit
+	 * writes are the source of truth; the frontend only reads them.
+	 */
+	async loadTimeline(rootTransactionId: string): Promise<AuditLogEntry[]> {
+		if (!isApiConfigured || !rootTransactionId) return [];
+
+		try {
+			const result = await auditApi.timeline(rootTransactionId);
+			const remoteEntries = result.data ?? [];
+			auditLogs.update((list) => {
+				const existing = new Set(list.map((entry) => entry.id));
+				return [
+					...list,
+					...remoteEntries.filter((entry) => !existing.has(entry.id))
+				];
+			});
+			return remoteEntries;
+		} catch (error) {
+			console.warn(`[audit] failed to load timeline for ${rootTransactionId}`, error);
+			return [];
+		}
 	},
 
 	async load(entityType: string, entityId: string, limit = 100): Promise<void> {
@@ -189,18 +209,6 @@ export const auditLogActions = {
 			});
 		} catch (error) {
 			console.warn(`[audit] failed to load audit entries for ${entityType}/${entityId}`, error);
-		}
-	},
-
-	deleteForEntity(entityType: string, entityId: string) {
-		auditLogs.update((list) =>
-			list.filter((entry) => !(entry.entityType === entityType && entry.entityId === entityId))
-		);
-
-		if (isApiConfigured) {
-			void auditApi.deleteForEntity(entityType, entityId).catch((error) => {
-				console.warn(`[audit] failed to delete audit entries for ${entityType}/${entityId}`, error);
-			});
 		}
 	}
 };
@@ -605,6 +613,28 @@ export async function hydrateMasterData(): Promise<void> {
  * Closed periods stay in the store so transaction tables can show locked rows
  * instead of appearing empty.
  */
+/**
+ * Load budgeting and expense data from the backend. These stores are
+ * operational data and are never seeded with fabricated rows.
+ */
+export async function hydrateBudgetingData(): Promise<void> {
+	if (!isApiConfigured) return;
+
+	try {
+		const [budgetsResult, allocationsResult, expensesResult] = await Promise.all([
+			budgetingApi.listBudgets(),
+			budgetingApi.listAllocations(),
+			expensesApi.list()
+		]);
+
+		annualBudgets.set(budgetsResult.data ?? []);
+		budgetAllocations.set(allocationsResult.data ?? []);
+		expenses.set(expensesResult.data ?? []);
+	} catch (error) {
+		console.warn('[budgeting] failed to hydrate budgeting data from API', error);
+	}
+}
+
 export async function hydratePeriods(): Promise<void> {
 	if (!isApiConfigured) return;
 

@@ -10,9 +10,8 @@
 		annualBudgets,
 		budgetAllocations,
 		budgetingActions,
-		auditLogActions
+		hydrateBudgetingData
 	} from '$lib/stores/dataStore';
-	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import { budgetStatusOptions } from '$lib/data/accounting-options';
 	import { formatSummaryCurrency } from '$lib/utils/formatters';
@@ -59,17 +58,8 @@
 		}
 		try {
 			await budgetingApi.deleteBudget(budget.id);
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'annual_budget',
-				entityId: budget.id,
-				documentNumber: budget.budgetNo,
-				action: 'delete',
-				actor: $user?.name || 'Budget Owner',
-				summary: `Deleted annual budget ${budget.budgetNo}.`,
-				before: budget as unknown as Record<string, unknown>
-			});
 			budgetingActions.deleteBudget(budget.id);
+			await hydrateBudgetingData();
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to delete budget.'));
 		}

@@ -1,6 +1,10 @@
 import type { FieldDef } from '$lib/types/entity';
 import type { AnnualBudget, BudgetAllocation, ChartOfAccount, Department } from '$lib/types';
-import type { CreateBudgetAllocationPayload } from '$lib/api/types';
+import {
+	mapAllocationToApi,
+	type CreateAllocationApiRequest,
+	type CreateBudgetAllocationPayload
+} from '$lib/api/types';
 
 export function buildBudgetAllocationFields(
 	budgets: AnnualBudget[],
@@ -68,6 +72,42 @@ export function buildBudgetAllocationPayload(
 		notes: String(payload.notes ?? ''),
 		description: String(payload.description ?? '')
 	};
+}
+
+export function mapBudgetAllocationToApi(
+	payload: Record<string, any>,
+	budgets: AnnualBudget[],
+	accounts: ChartOfAccount[],
+	departments: Department[],
+	preparedBy: number | null,
+	allocationDate?: string
+): CreateAllocationApiRequest {
+	const form = buildBudgetAllocationPayload(payload, budgets, accounts, departments);
+	const budget = budgets.find((item) => item.budgetNo === payload.budgetNo);
+	const account = accounts.find((item) => item.code === payload.accountCode);
+	const department = departments.find((item) => item.code === payload.departmentCode);
+
+	if (!budget) throw new Error(`Budget "${payload.budgetNo}" was not found.`);
+	if (!account) throw new Error(`Expense account "${payload.accountCode}" was not found.`);
+	if (!department) throw new Error(`Department "${payload.departmentCode}" was not found.`);
+
+	const budgetPlanId = Number(budget.id);
+	const coaId = Number(account.id);
+	const departmentId = Number(department.id);
+	if (!Number.isSafeInteger(budgetPlanId) || budgetPlanId <= 0) {
+		throw new Error('Budget database ID is missing or is not numeric.');
+	}
+	if (!Number.isSafeInteger(coaId) || coaId <= 0) {
+		throw new Error('Expense account database ID is missing or is not numeric.');
+	}
+
+	return mapAllocationToApi(form, {
+		budgetPlanId,
+		coaId,
+		departmentId: Number.isSafeInteger(departmentId) && departmentId > 0 ? departmentId : null,
+		preparedBy,
+		allocationDate
+	});
 }
 
 export function budgetAllocationValues(allocation: BudgetAllocation): Record<string, any> {

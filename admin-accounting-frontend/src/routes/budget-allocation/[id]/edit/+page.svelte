@@ -6,17 +6,16 @@
 	import {
 		annualBudgets,
 		budgetAllocations,
-		budgetingActions,
 		chartOfAccounts,
 		departments,
-		auditLogActions
+		hydrateBudgetingData
 	} from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import {
 		buildBudgetAllocationFields,
-		buildBudgetAllocationPayload,
-		budgetAllocationValues
+		budgetAllocationValues,
+		mapBudgetAllocationToApi
 	} from '$lib/modules/budgeting/budgetAllocationFields';
 
 	$: allocationId = $page.params.id ?? '';
@@ -26,22 +25,16 @@
 
 	async function handleSubmit(payload: Record<string, any>) {
 		if (!allocation) return;
-		const before = allocation as unknown as Record<string, unknown>;
-		const fullPayload = buildBudgetAllocationPayload(payload, $annualBudgets, $chartOfAccounts, $departments);
-		await budgetingApi.updateAllocation(allocation.id, fullPayload);
-		budgetingActions.updateAllocation(allocation.id, fullPayload);
-		const after = { ...allocation, ...fullPayload } as unknown as Record<string, unknown>;
-		auditLogActions.record({
-			module: 'budgeting',
-			entityType: 'budget_allocation',
-			entityId: allocation.id,
-			documentNumber: `${fullPayload.budgetNo} / ${fullPayload.accountCode}`,
-			action: 'update',
-			actor: $user?.name || 'Budget Owner',
-			summary: `Updated budget allocation for ${fullPayload.accountCode} on ${fullPayload.budgetNo}.`,
-			before,
-			after
-		});
+		const preparedBy = Number($user?.id);
+		const apiPayload = mapBudgetAllocationToApi(
+			payload,
+			$annualBudgets,
+			$chartOfAccounts,
+			$departments,
+			Number.isSafeInteger(preparedBy) && preparedBy > 0 ? preparedBy : null
+		);
+		await budgetingApi.updateAllocation(allocation.id, apiPayload);
+		await hydrateBudgetingData();
 		goto(`/budget-allocation/${allocation.id}`);
 	}
 </script>
@@ -60,6 +53,7 @@
 		onSubmit={handleSubmit}
 		auditEntityType="budget_allocation"
 		auditEntityId={allocation.id}
+		auditRootTransactionId={allocation.rootTransactionId ?? ''}
 	/>
 {:else}
 	<TransactionPageShell

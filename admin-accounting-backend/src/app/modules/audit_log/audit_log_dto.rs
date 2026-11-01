@@ -5,6 +5,8 @@ use super::audit_log_entity::AuditLogChange;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateAuditDto {
+    #[serde(default)]
+    pub root_transaction_id: String,
     pub module: String,
     pub entity_type: String,
     pub entity_id: String,
@@ -24,6 +26,8 @@ pub struct CreateAuditDto {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListAuditQuery {
+    #[serde(default)]
+    pub root_transaction_id: Option<String>,
     pub module: Option<String>,
     pub entity_type: Option<String>,
     pub entity_id: Option<String>,

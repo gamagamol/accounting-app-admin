@@ -5,20 +5,39 @@
 	import { auditLogActions, auditLogs } from '$lib/stores/dataStore';
 	import type { AuditLogEntry, AuditTransactionStatus } from '$lib/types';
 
-	export let entityType: string;
-	export let entityId: string;
+	export let entityType: string = '';
+	export let entityId: string = '';
+	/**
+	 * When supplied, the panel renders the full chronological lifecycle for
+	 * this root transaction (Quotation -> Sales Order -> Delivery -> Invoice ->
+	 * Payment, or Purchase Order -> Goods Receipt -> Invoice -> Payment).
+	 */
+	export let rootTransactionId: string = '';
 	export let title: string = 'Audit Log';
 	export let description: string = 'Immutable record of changes made to this transaction.';
 	export let compact: boolean = false;
 
 	let isDetailOpen = false;
 	let selectedEntry: AuditLogEntry | null = null;
+	let timelineEntries: AuditLogEntry[] = [];
+	let timelineLoading = false;
+
+	async function loadTimeline() {
+		if (!rootTransactionId) return;
+		timelineLoading = true;
+		timelineEntries = await auditLogActions.loadTimeline(rootTransactionId);
+		timelineLoading = false;
+	}
 
 	onMount(() => {
-		if (entityType && entityId) {
+		if (!rootTransactionId && entityType && entityId) {
 			void auditLogActions.load(entityType, entityId);
 		}
 	});
+
+	$: if (rootTransactionId) {
+		void loadTimeline();
+	}
 
 	const actionLabels: Record<string, string> = {
 		create: 'Create',
@@ -71,7 +90,10 @@
 	$: recordedEntries = $auditLogs
 		.filter((entry) => entry.entityType === entityType && entry.entityId === entityId)
 		.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-	$: entries = recordedEntries;
+	$: entries = rootTransactionId ? timelineEntries : recordedEntries;
+	$: panelDescription = rootTransactionId
+		? `Full lifecycle for ${rootTransactionId}, oldest event first.`
+		: description;
 
 	function formatTimestamp(value: string) {
 		return new Date(value).toLocaleString('en-US', {
@@ -132,14 +154,18 @@
 	<div class="flex flex-col gap-1 border-b border-gray-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
 		<div>
 			<h3 class="text-sm font-bold text-gray-900 dark:text-white">{title}</h3>
-			<p class="text-xs text-gray-500 dark:text-slate-400">{description}</p>
+			<p class="text-xs text-gray-500 dark:text-slate-400">{panelDescription}</p>
 		</div>
 		<span class="inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
 			{entries.length} {entries.length === 1 ? 'entry' : 'entries'}
 		</span>
 	</div>
 
-	{#if entries.length === 0}
+	{#if timelineLoading}
+		<div class="px-4 py-8 text-center">
+			<p class="text-sm font-medium text-gray-600 dark:text-slate-300">Loading audit timeline…</p>
+		</div>
+	{:else if entries.length === 0}
 		<div class="px-4 py-8 text-center">
 			<p class="text-sm font-medium text-gray-600 dark:text-slate-300">No audit entries yet.</p>
 			<p class="mt-1 text-xs text-gray-500 dark:text-slate-400">
@@ -153,6 +179,7 @@
 					<tr>
 						<th class="px-4 py-3">Name</th>
 						<th class="px-4 py-3 whitespace-nowrap">Date</th>
+						<th class="px-4 py-3">Module / Document</th>
 						<th class="px-4 py-3">Action</th>
 						<th class="px-4 py-3">Status</th>
 						<th class="px-4 py-3 text-right">Fields</th>
@@ -166,6 +193,14 @@
 							</td>
 							<td class="whitespace-nowrap px-4 py-3 text-gray-500 dark:text-slate-400">
 								{formatTimestamp(entry.timestamp)}
+							</td>
+							<td class="px-4 py-3">
+								<p class="font-semibold capitalize text-gray-700 dark:text-slate-200">
+									{entry.module.replace(/_/g, ' ')}
+								</p>
+								<p class="font-mono text-[11px] text-gray-500 dark:text-slate-400">
+									{entry.documentNumber || entry.entityType}
+								</p>
 							</td>
 							<td class="min-w-[220px] px-4 py-3">
 								<div class="flex flex-col gap-1">

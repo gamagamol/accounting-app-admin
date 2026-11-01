@@ -2,11 +2,16 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
-	import { annualBudgets, budgetingActions, departments } from '$lib/stores/dataStore';
+	import {
+		annualBudgets,
+		budgetingActions,
+		departments,
+		hydrateBudgetingData
+	} from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import type { AnnualBudget } from '$lib/types';
-	import type { CreateAnnualBudgetPayload } from '$lib/api/types';
+	import { mapBudgetToApi, type CreateAnnualBudgetPayload } from '$lib/api/types';
 	import { transactionStatusOptions } from '$lib/data/transaction-statuses';
 
 	export let isOpen = false;
@@ -83,17 +88,23 @@
 
 		saving = true;
 		try {
+			const selectedDepartment = $departments.find(
+				(item) => item.code === form.departmentCode
+			);
+			const preparedBy = Number($user?.id);
+			const apiPayload = mapBudgetToApi(form, {
+				departmentId: selectedDepartment ? Number(selectedDepartment.id) : null,
+				preparedBy: Number.isSafeInteger(preparedBy) && preparedBy > 0 ? preparedBy : null
+			});
+			if (!budget) apiPayload.budget_number = null;
+
 			if (budget) {
-				await budgetingApi.updateBudget(budget.id, form);
+				await budgetingApi.updateBudget(budget.id, apiPayload);
 				budgetingActions.updateBudget(budget.id, form);
 			} else {
-				await budgetingApi.createBudget(form);
-				budgetingActions.addBudget({
-					...form,
-					createdAt: new Date().toISOString().split('T')[0],
-					approvedBy: ''
-				});
+				await budgetingApi.createBudget(apiPayload);
 			}
+			await hydrateBudgetingData();
 			isOpen = false;
 			onSaved();
 		} catch (error) {

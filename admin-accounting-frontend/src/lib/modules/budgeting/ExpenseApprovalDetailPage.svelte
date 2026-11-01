@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EntityDetailPage from '$lib/components/transactions/EntityDetailPage.svelte';
-	import { expenses, expenseActions, auditLogActions } from '$lib/stores/dataStore';
+	import { expenses, hydrateBudgetingData } from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { expensesApi } from '$lib/api';
 	import { expenseStatusOptions, expenseTypeOptions } from '$lib/data/accounting-options';
@@ -53,30 +53,16 @@
 
 	async function decide(decision: 'approve' | 'reject' | 'post') {
 		if (!current) return;
-		const before = { ...current } as unknown as Record<string, unknown>;
 		working = true;
 		try {
 			if (decision === 'approve') {
 				await expensesApi.approve(current.id, { approvedBy: $user?.name });
-				expenseActions.approve(current.id, $user?.name);
 			} else if (decision === 'reject') {
 				await expensesApi.reject(current.id, { approvedBy: $user?.name });
-				expenseActions.reject(current.id, $user?.name);
 			} else {
 				await expensesApi.post(current.id, { postedBy: $user?.name });
-				expenseActions.post(current.id);
 			}
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'expense_entry',
-				entityId: current.id,
-				documentNumber: current.expenseNo,
-				action: decision,
-				actor: $user?.name || 'Finance Approver',
-				summary: `${decision === 'approve' ? 'Approved' : decision === 'reject' ? 'Rejected' : 'Posted'} expense ${current.expenseNo}.`,
-				before,
-				after: { ...current, status: decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'completed' } as unknown as Record<string, unknown>
-			});
+			await hydrateBudgetingData();
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to update expense status.'));
 		} finally {

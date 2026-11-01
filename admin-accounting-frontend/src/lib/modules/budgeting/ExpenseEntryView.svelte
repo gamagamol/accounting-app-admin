@@ -6,8 +6,7 @@
 	import FilterSelect from '$lib/components/ui/FilterSelect.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import { expenses, expenseActions, auditLogActions } from '$lib/stores/dataStore';
-	import { user } from '$lib/stores/auth';
+	import { expenses, expenseActions, hydrateBudgetingData } from '$lib/stores/dataStore';
 	import { expensesApi } from '$lib/api';
 	import {
 		expenseStatusOptions,
@@ -95,17 +94,8 @@
 		if (!confirm(`Delete expense "${expense.expenseNo}"? This action cannot be undone.`)) return;
 		try {
 			await expensesApi.delete(expense.id);
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'expense_entry',
-				entityId: expense.id,
-				documentNumber: expense.expenseNo,
-				action: 'delete',
-				actor: $user?.name || 'Expense Owner',
-				summary: `Deleted expense ${expense.expenseNo}.`,
-				before: expense as unknown as Record<string, unknown>
-			});
 			expenseActions.delete(expense.id);
+			await hydrateBudgetingData();
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to delete expense.'));
 		}

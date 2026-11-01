@@ -433,6 +433,7 @@ export type ExpenseStatus = TransactionStatus;
 
 export interface ExpenseEntry extends TransactionMetadata {
 	id: string;
+	rootTransactionId?: string;
 	date: string;
 	expenseNo: string;
 	expenseType: ExpenseType;
@@ -467,6 +468,7 @@ export type BudgetStatus = TransactionStatus;
 
 export interface AnnualBudget extends TransactionMetadata {
 	id: string;
+	rootTransactionId?: string;
 	budgetNo: string;
 	fiscalYear: number;
 	name: string;
@@ -482,6 +484,9 @@ export interface AnnualBudget extends TransactionMetadata {
 
 export interface BudgetAllocation extends TransactionMetadata {
 	id: string;
+	/** Detail-line id used by expense lines to consume the allocation. */
+	detailId?: string;
+	rootTransactionId?: string;
 	budgetId: string;
 	budgetNo: string;
 	fiscalYear: number;
@@ -631,6 +636,7 @@ export interface AuditLogChange {
 
 export interface AuditLogEntry {
 	id: string;
+	rootTransactionId?: string;
 	module: string;
 	entityType: string;
 	entityId: string;

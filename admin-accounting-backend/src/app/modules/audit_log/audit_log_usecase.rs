@@ -33,12 +33,19 @@ impl IAuditLogUsecase for AuditLogUsecase {
             .unwrap_or(DEFAULT_PAGE_SIZE)
             .clamp(1, MAX_PAGE_SIZE);
         let offset = ((page - 1) * limit) as i64;
+        let has_root = query
+            .root_transaction_id
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty());
 
         let filter = AuditFilter {
+            root_transaction_id: query.root_transaction_id,
             module: query.module,
             entity_type: query.entity_type,
             entity_id: query.entity_id,
             search: query.search,
+            ascending: has_root,
             offset,
             limit: limit as i64,
         };
@@ -47,6 +54,27 @@ impl IAuditLogUsecase for AuditLogUsecase {
         let meta = PaginationMeta::new(page, limit, total as u64);
 
         Ok((entries, meta))
+    }
+
+    async fn timeline(&self, root_transaction_id: &str) -> Result<Vec<AuditLogEntry>, AppError> {
+        let root = root_transaction_id.trim();
+        if root.is_empty() {
+            return Err(AppError::BadRequest(
+                "rootTransactionId is required".to_string(),
+            ));
+        }
+
+        let filter = AuditFilter {
+            root_transaction_id: Some(root.to_string()),
+            ascending: true,
+            offset: 0,
+            limit: 1000,
+            ..Default::default()
+        };
+
+        let (mut entries, _) = self.repo.list(filter).await.map_err(AppError::Database)?;
+        entries.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+        Ok(entries)
     }
 
     async fn get_by_id(&self, id: &str) -> Result<AuditLogEntry, AppError> {
@@ -58,21 +86,19 @@ impl IAuditLogUsecase for AuditLogUsecase {
     }
 
     async fn create(&self, dto: CreateAuditDto) -> Result<AuditLogEntry, AppError> {
-        if dto.action.trim() == "not-an-action" {
-            let mut err_map = serde_json::Map::new();
-            err_map.insert(
-                "action".to_string(),
-                serde_json::Value::String("Invalid action specified".to_string()),
-            );
-            return Err(AppError::Validation(serde_json::Value::Object(err_map)));
-        }
-
         if dto.module.trim().is_empty() {
             return Err(AppError::BadRequest("Module is required".to_string()));
+        }
+        if dto.entity_type.trim().is_empty() {
+            return Err(AppError::BadRequest("entityType is required".to_string()));
+        }
+        if dto.action.trim().is_empty() {
+            return Err(AppError::BadRequest("action is required".to_string()));
         }
 
         let entry = AuditLogEntry {
             id: Id::generate().0,
+            root_transaction_id: dto.root_transaction_id.trim().to_string(),
             module: dto.module,
             entity_type: dto.entity_type,
             entity_id: dto.entity_id,
@@ -88,20 +114,5 @@ impl IAuditLogUsecase for AuditLogUsecase {
 
         self.repo.create(&entry).await.map_err(AppError::Database)?;
         Ok(entry)
-    }
-
-    async fn delete(&self, id: &str) -> Result<(), AppError> {
-        let deleted = self.repo.delete(id).await.map_err(AppError::Database)?;
-        if !deleted {
-            return Err(AppError::NotFound("Audit log entry not found".to_string()));
-        }
-        Ok(())
-    }
-
-    async fn delete_for_entity(&self, entity_type: &str, entity_id: &str) -> Result<u64, AppError> {
-        self.repo
-            .delete_for_entity(entity_type, entity_id)
-            .await
-            .map_err(AppError::Database)
     }
 }

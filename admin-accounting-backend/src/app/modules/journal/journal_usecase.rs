@@ -141,6 +141,10 @@ impl JournalUsecase {
         let result = self
             .audit
             .create(CreateAuditDto {
+                root_transaction_id: Self::header_value(doc, "root_transaction_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
                 module: "accounting".to_string(),
                 entity_type: "journal_entry".to_string(),
                 entity_id: id.to_string(),

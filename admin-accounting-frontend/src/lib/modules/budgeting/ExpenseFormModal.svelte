@@ -5,11 +5,11 @@
 	import {
 		annualBudgets,
 		bankAccounts,
+		budgetAllocations,
 		chartOfAccounts,
 		departments,
 		employees,
 		expenses,
-		expenseActions,
 		suppliers
 	} from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
@@ -23,7 +23,11 @@
 	} from '$lib/data/accounting-options';
 	import { formatCurrency } from '$lib/utils/formatters';
 	import type { ExpenseEntry, ExpenseType } from '$lib/types';
-	import type { CreateExpensePayload } from '$lib/api/types';
+	import {
+		mapExpenseToApi,
+		type CreateExpensePayload,
+		type ExpenseApiReferences
+	} from '$lib/api/types';
 
 	export let isOpen = false;
 	export let expense: ExpenseEntry | null = null;
@@ -219,13 +223,81 @@
 
 		saving = true;
 		try {
-			if (expense) {
-				await expensesApi.update(expense.id, payload);
-				expenseActions.update(expense.id, payload);
-			} else {
-				await expensesApi.create(payload);
-				expenseActions.add(payload);
+			const selectedAccount = $chartOfAccounts.find(
+				(item) => item.code === payload.accountCode && item.category === 'Expense'
+			);
+			const selectedDepartment = $departments.find(
+				(item) => item.code === payload.departmentCode
+			);
+			const selectedBudget = $annualBudgets.find(
+				(item) => String(item.id) === String(payload.budgetId)
+			);
+			const selectedEmployee = $employees.find(
+				(item) => String(item.id) === String(payload.employeeId)
+			);
+			const selectedSupplier = $suppliers.find(
+				(item) =>
+					item.companyName === payload.supplierName ||
+					item.contactPerson === payload.supplierName
+			);
+			const selectedBankAccount = $bankAccounts.find(
+				(item) => item.code === payload.bankAccount
+			);
+			const toNumericId = (value: unknown): number | null => {
+				if (value === null || value === undefined || value === '') return null;
+				const id = Number(value);
+				return Number.isSafeInteger(id) && id > 0 ? id : null;
+			};
+
+			const coaId = toNumericId(selectedAccount?.id);
+			if (coaId === null) {
+				throw new Error(`Database ID for expense account "${payload.accountCode}" was not found.`);
 			}
+			if (!selectedDepartment) {
+				throw new Error(`Department "${payload.departmentCode}" was not found.`);
+			}
+
+			const selectedAllocation = $budgetAllocations.find(
+				(allocation) =>
+					String(allocation.budgetId) === String(payload.budgetId) &&
+					allocation.accountCode === payload.accountCode &&
+					(!payload.departmentCode ||
+						!allocation.departmentCode ||
+						allocation.departmentCode === payload.departmentCode) &&
+					Number(allocation.allocatedAmount) - Number(allocation.usedAmount) >= totalAmount
+			);
+
+			const references: ExpenseApiReferences = {
+				departmentId: toNumericId(selectedDepartment.id),
+				costCenterId: null,
+				budgetPlanId: toNumericId(selectedBudget?.id),
+				budgetAllocationId: toNumericId(selectedAllocation?.id),
+				lineBudgetAllocationId: toNumericId(selectedAllocation?.detailId),
+				employeeId: toNumericId(selectedEmployee?.id),
+				supplierId: toNumericId(selectedSupplier?.id),
+				bankAccountId: toNumericId(selectedBankAccount?.id),
+				preparedBy: toNumericId($user?.id),
+				coaId,
+				taxRateId: null
+			};
+			if (references.departmentId === null) {
+				throw new Error('Department database ID is missing or is not numeric.');
+			}
+
+			const apiPayload = mapExpenseToApi(payload, references);
+			if (!expense) apiPayload.document_number = null;
+
+			const result = expense
+				? await expensesApi.update(expense.id, apiPayload)
+				: await expensesApi.create(apiPayload);
+			expenses.update((list) => {
+				const index = list.findIndex((item) => item.id === result.data.id);
+				if (index === -1) return [result.data, ...list];
+				const next = [...list];
+				next[index] = result.data;
+				return next;
+			});
+
 			isOpen = false;
 			onSaved();
 		} catch (error) {

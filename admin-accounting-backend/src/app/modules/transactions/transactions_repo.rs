@@ -125,6 +125,8 @@ impl TransactionRepo {
 #[derive(Debug, Deserialize)]
 struct HeaderJson {
     id: i64,
+    #[serde(default)]
+    root_transaction_id: String,
     document_number: String,
     document_date: NaiveDate,
     #[serde(default)]
@@ -162,6 +164,7 @@ impl HeaderJson {
     fn into_snapshot(self) -> HeaderSnapshot {
         HeaderSnapshot {
             id: self.id,
+            root_transaction_id: self.root_transaction_id,
             document_number: self.document_number,
             document_date: self.document_date,
             customer_id: self.customer_id,
@@ -572,6 +575,17 @@ impl ITransactionRepo for TransactionRepo {
             date.format("%Y%m%d"),
             count + 1
         ))
+    }
+
+    async fn next_root_transaction_id(&self, date: NaiveDate) -> Result<String, String> {
+        sqlx::query_scalar(
+            "SELECT 'ROOT-' || to_char($1::date, 'YYYYMMDD') || '-' ||
+                    lpad(nextval('root_transaction_seq')::text, 6, '0')",
+        )
+        .bind(date)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| e.to_string())
     }
 
     async fn create_quotation(
@@ -1060,8 +1074,8 @@ async fn insert_quotation(
         "INSERT INTO transaction_quotation
          (document_number, transaction_number, document_date, valid_until, customer_id, salesperson_id,
           prepared_by, payment_term_id, tax_rate_id, currency_code, exchange_rate, subtotal, discount_total,
-          tax_total, shipping_cost, grand_total, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,$17,$18)
+          tax_total, shipping_cost, grand_total, status, notes, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,$17,$18,$19)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1082,6 +1096,7 @@ async fn insert_quotation(
     .bind(h.grand_total)
     .bind(&h.status)
     .bind(&h.notes)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1127,8 +1142,8 @@ async fn insert_sales_order(
         "INSERT INTO transaction_sales_order
          (document_number, transaction_number, document_date, delivery_date, customer_id, quotation_id,
           warehouse_id, payment_term_id, tax_rate_id, salesperson_id, prepared_by, currency_code, exchange_rate,
-          subtotal, discount_total, tax_total, shipping_cost, grand_total, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16::numeric,$17::numeric,$18::numeric,$19,$20)
+          subtotal, discount_total, tax_total, shipping_cost, grand_total, status, notes, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16::numeric,$17::numeric,$18::numeric,$19,$20,$21)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1151,6 +1166,7 @@ async fn insert_sales_order(
     .bind(h.grand_total)
     .bind(&h.status)
     .bind(&h.notes)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1195,8 +1211,8 @@ async fn insert_delivery(
 ) -> Result<i64, String> {
     sqlx::query_scalar(
         "INSERT INTO transaction_delivery
-         (document_number, document_date, sales_order_id, customer_id, warehouse_id, shipping_address, status, prepared_by, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         (document_number, document_date, sales_order_id, customer_id, warehouse_id, shipping_address, status, prepared_by, notes, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1208,6 +1224,7 @@ async fn insert_delivery(
     .bind(&h.status)
     .bind(h.prepared_by)
     .bind(&h.notes)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1247,8 +1264,8 @@ async fn insert_sales_invoice(
         "INSERT INTO transaction_sales_invoice
          (document_number, document_date, due_date, customer_id, sales_order_id, delivery_id,
           payment_term_id, tax_rate_id, prepared_by, currency_code, exchange_rate, subtotal,
-          discount_total, tax_total, shipping_cost, grand_total, paid_amount, outstanding_amount, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,0,$16::numeric,$17,$18)
+          discount_total, tax_total, shipping_cost, grand_total, paid_amount, outstanding_amount, status, notes, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,0,$16::numeric,$17,$18,$19)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1269,6 +1286,7 @@ async fn insert_sales_invoice(
     .bind(h.grand_total)
     .bind(&h.status)
     .bind(&h.notes)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1315,8 +1333,8 @@ async fn insert_customer_receipt(
     sqlx::query_scalar(
         "INSERT INTO transaction_customer_receipt
          (document_number, document_date, customer_id, payment_method, bank_account_id, reference_number,
-          total_amount, allocated_amount, unallocated_amount, status, notes, prepared_by, posted_by, posted_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9::numeric,$10,$11,$12,$12,now())
+          total_amount, allocated_amount, unallocated_amount, status, notes, prepared_by, posted_by, posted_at, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9::numeric,$10,$11,$12,$12,now(),$13)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1331,6 +1349,7 @@ async fn insert_customer_receipt(
     .bind(&h.status)
     .bind(&h.notes)
     .bind(h.prepared_by)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1367,8 +1386,8 @@ async fn insert_purchase_order(
         "INSERT INTO transaction_purchase_order
          (document_number, transaction_number, document_date, expected_date, supplier_id, warehouse_id,
           payment_term_id, tax_rate_id, prepared_by, currency_code, exchange_rate, subtotal, discount_total,
-          tax_total, shipping_cost, grand_total, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,$17,$18)
+          tax_total, shipping_cost, grand_total, status, notes, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,$17,$18,$19)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1389,6 +1408,7 @@ async fn insert_purchase_order(
     .bind(h.grand_total)
     .bind(&h.status)
     .bind(&h.notes)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1433,8 +1453,8 @@ async fn insert_goods_receipt(
 ) -> Result<i64, String> {
     sqlx::query_scalar(
         "INSERT INTO transaction_goods_receipt
-         (document_number, document_date, purchase_order_id, supplier_id, warehouse_id, status, notes, prepared_by, posted_by, posted_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,now())
+         (document_number, document_date, purchase_order_id, supplier_id, warehouse_id, status, notes, prepared_by, posted_by, posted_at, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,now(),$9)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1445,6 +1465,7 @@ async fn insert_goods_receipt(
     .bind(&h.status)
     .bind(&h.notes)
     .bind(h.prepared_by)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1486,8 +1507,8 @@ async fn insert_purchase_invoice(
         "INSERT INTO transaction_purchase_invoice
          (document_number, document_date, due_date, supplier_id, purchase_order_id, goods_receipt_id,
           payment_term_id, tax_rate_id, prepared_by, currency_code, exchange_rate, subtotal, discount_total,
-          tax_total, shipping_cost, grand_total, paid_amount, outstanding_amount, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,0,$16::numeric,$17,$18)
+          tax_total, shipping_cost, grand_total, paid_amount, outstanding_amount, status, notes, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15::numeric,$16::numeric,0,$16::numeric,$17,$18,$19)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1508,6 +1529,7 @@ async fn insert_purchase_invoice(
     .bind(h.grand_total)
     .bind(&h.status)
     .bind(&h.notes)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())
@@ -1554,8 +1576,8 @@ async fn insert_vendor_payment(
     sqlx::query_scalar(
         "INSERT INTO transaction_vendor_payment
          (document_number, document_date, supplier_id, payment_method, bank_account_id, reference_number,
-          total_amount, allocated_amount, unallocated_amount, status, notes, prepared_by, posted_by, posted_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9::numeric,$10,$11,$12,$12,now())
+          total_amount, allocated_amount, unallocated_amount, status, notes, prepared_by, posted_by, posted_at, root_transaction_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9::numeric,$10,$11,$12,$12,now(),$13)
          RETURNING id",
     )
     .bind(&h.document_number)
@@ -1570,6 +1592,7 @@ async fn insert_vendor_payment(
     .bind(&h.status)
     .bind(&h.notes)
     .bind(h.prepared_by)
+    .bind(&h.root_transaction_id)
     .fetch_one(&mut **tx)
     .await
     .map_err(|e| e.to_string())

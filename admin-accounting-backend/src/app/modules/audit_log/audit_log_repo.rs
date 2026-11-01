@@ -34,6 +34,12 @@ impl AuditLogRepo {
         let index = IndexModel::builder().keys(keys).build();
         let _ = collection.create_index(index).await;
 
+        let mut root_keys = Document::new();
+        root_keys.insert("rootTransactionId", 1);
+        root_keys.insert("timestamp", 1);
+        let root_index = IndexModel::builder().keys(root_keys).build();
+        let _ = collection.create_index(root_index).await;
+
         Self {
             postgres,
             redis,
@@ -46,6 +52,9 @@ impl AuditLogRepo {
 impl IAuditLogRepo for AuditLogRepo {
     async fn list(&self, filter: AuditFilter) -> Result<(Vec<AuditLogEntry>, i64), String> {
         let mut query = Document::new();
+        if let Some(root) = &filter.root_transaction_id {
+            query.insert("rootTransactionId", root);
+        }
         if let Some(module) = &filter.module {
             query.insert("module", module);
         }
@@ -67,6 +76,7 @@ impl IAuditLogRepo for AuditLogRepo {
                     doc! { "entityType": &pattern },
                     doc! { "entityId": &pattern },
                     doc! { "documentNumber": &pattern },
+                    doc! { "rootTransactionId": &pattern },
                     doc! { "actor": &pattern },
                     doc! { "summary": &pattern },
                 ],
@@ -79,10 +89,11 @@ impl IAuditLogRepo for AuditLogRepo {
             .await
             .map_err(|e| e.to_string())? as i64;
 
+        let direction = if filter.ascending { 1 } else { -1 };
         let entries = self
             .collection
             .find(query)
-            .sort(doc! { "timestamp": -1 })
+            .sort(doc! { "timestamp": direction })
             .skip(filter.offset.max(0) as u64)
             .limit(filter.limit.max(0))
             .await
@@ -107,25 +118,5 @@ impl IAuditLogRepo for AuditLogRepo {
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
-    }
-
-    async fn delete(&self, id: &str) -> Result<bool, String> {
-        let result = self
-            .collection
-            .delete_one(doc! { "id": id })
-            .await
-            .map_err(|e| e.to_string())?;
-
-        Ok(result.deleted_count > 0)
-    }
-
-    async fn delete_for_entity(&self, entity_type: &str, entity_id: &str) -> Result<u64, String> {
-        let result = self
-            .collection
-            .delete_many(doc! { "entityType": entity_type, "entityId": entity_id })
-            .await
-            .map_err(|e| e.to_string())?;
-
-        Ok(result.deleted_count)
     }
 }

@@ -235,13 +235,93 @@ export interface ExpenseApiReferences {
   departmentId: number | null;
   costCenterId: number | null;
   budgetPlanId: number | null;
+  /** Header-level budget_allocation.id. */
   budgetAllocationId: number | null;
+  /** Detail-level budget_allocation_detail.id consumed when posting. */
+  lineBudgetAllocationId?: number | null;
   employeeId: number | null;
   supplierId: number | null;
   bankAccountId: number | null;
   preparedBy: number | null;
   coaId: number;
   taxRateId: number | null;
+}
+
+/** Budgeting API payloads (snake_case matches the Rust DTOs). */
+export interface CreateBudgetApiRequest {
+	budget_number: string | null;
+	fiscal_year: number;
+	name: string;
+	department_id: number | null;
+	prepared_by: number | null;
+	notes: string | null;
+	total_amount: number;
+	lines: Array<{
+		coa_id: number;
+		department_id: number | null;
+		description: string | null;
+		allocated_amount: number;
+		notes: string | null;
+	}>;
+}
+
+export interface CreateAllocationApiRequest {
+	allocation_number: string | null;
+	budget_plan_id: number;
+	allocation_date: string;
+	prepared_by: number | null;
+	notes: string | null;
+	lines: Array<{
+		budget_plan_detail_id: number | null;
+		coa_id: number;
+		department_id: number | null;
+		allocated_amount: number;
+		notes: string | null;
+	}>;
+}
+
+export function mapBudgetToApi(
+	form: CreateAnnualBudgetPayload,
+	refs: { departmentId: number | null; preparedBy: number | null },
+): CreateBudgetApiRequest {
+	return {
+		budget_number: form.budgetNo.trim() || null,
+		fiscal_year: Number(form.fiscalYear),
+		name: form.name.trim(),
+		department_id: refs.departmentId,
+		prepared_by: refs.preparedBy,
+		notes: form.notes?.trim() || form.description?.trim() || null,
+		total_amount: Number(form.totalAmount) || 0,
+		lines: []
+	};
+}
+
+export function mapAllocationToApi(
+	form: CreateBudgetAllocationPayload,
+	refs: {
+		budgetPlanId: number;
+		coaId: number;
+		departmentId: number | null;
+		preparedBy: number | null;
+		allocationDate?: string;
+	},
+): CreateAllocationApiRequest {
+	return {
+		allocation_number: null,
+		budget_plan_id: refs.budgetPlanId,
+		allocation_date: refs.allocationDate || new Date().toISOString().split('T')[0],
+		prepared_by: refs.preparedBy,
+		notes: form.notes?.trim() || form.description?.trim() || null,
+		lines: [
+			{
+				budget_plan_detail_id: null,
+				coa_id: refs.coaId,
+				department_id: refs.departmentId,
+				allocated_amount: Number(form.allocatedAmount) || 0,
+				notes: form.notes?.trim() || null
+			}
+		]
+	};
 }
 
 export function mapExpenseToApi(
@@ -277,7 +357,7 @@ export function mapExpenseToApi(
         amount: Number(form.amount),
         tax_rate_id: refs.taxRateId,
         tax_amount: Number(form.taxAmount) || 0,
-        budget_allocation_id: refs.budgetAllocationId,
+        budget_allocation_id: refs.lineBudgetAllocationId ?? refs.budgetAllocationId,
       },
     ],
   };

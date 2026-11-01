@@ -78,7 +78,11 @@
 		<slot />
 
 		{#if auditEntityType && auditEntityId}
-			<AuditLogPanel entityType={auditEntityType} entityId={auditEntityId} />
+			<AuditLogPanel
+				entityType={auditEntityType}
+				entityId={auditEntityId}
+				rootTransactionId={row.rootTransactionId ?? row.root_transaction_id ?? ''}
+			/>
 		{/if}
 	{:else}
 		<div class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">

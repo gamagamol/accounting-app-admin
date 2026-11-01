@@ -7,7 +7,7 @@
 	import AuditLogPanel from '$lib/components/ui/AuditLogPanel.svelte';
 	import PendingApprovalPanel from '$lib/components/transactions/PendingApprovalPanel.svelte';
 	import TransactionPageShell from '$lib/components/transactions/TransactionPageShell.svelte';
-	import { expenses, expenseActions, auditLogActions } from '$lib/stores/dataStore';
+	import { expenses, expenseActions, hydrateBudgetingData } from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { expensesApi } from '$lib/api';
 	import { expenseTypeLabel } from '$lib/data/accounting-options';
@@ -25,36 +25,18 @@
 		if (!current) return;
 		working = true;
 		errorMessage = '';
-		const before = current as unknown as Record<string, unknown>;
 		const actor = $user?.name || 'Expense Approver';
 		try {
 			if (action === 'submit') {
 				await expensesApi.submit(current.id, actor);
-				expenseActions.submit(current.id, actor);
 			} else if (action === 'approve') {
 				await expensesApi.approve(current.id, { approvedBy: actor });
-				expenseActions.approve(current.id, actor);
 			} else if (action === 'reject') {
 				await expensesApi.reject(current.id, { approvedBy: actor });
-				expenseActions.reject(current.id, actor);
 			} else {
 				await expensesApi.post(current.id, { postedBy: actor });
-				expenseActions.post(current.id);
 			}
-
-			const nextStatus =
-				action === 'submit' ? 'pending' : action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'completed';
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'expense_entry',
-				entityId: current.id,
-				documentNumber: current.expenseNo,
-				action,
-				actor,
-				summary: `${action === 'submit' ? 'Submitted' : action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Posted'} expense ${current.expenseNo}.`,
-				before,
-				after: { ...current, status: nextStatus } as unknown as Record<string, unknown>
-			});
+			await hydrateBudgetingData();
 		} catch (error) {
 			errorMessage = getErrorMessage(error, 'Action failed.');
 		} finally {
@@ -67,17 +49,8 @@
 		if (!confirm(`Delete expense ${current.expenseNo}? This action cannot be undone.`)) return;
 		try {
 			await expensesApi.delete(current.id);
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'expense_entry',
-				entityId: current.id,
-				documentNumber: current.expenseNo,
-				action: 'delete',
-				actor: $user?.name || 'Expense Owner',
-				summary: `Deleted expense ${current.expenseNo}.`,
-				before: current as unknown as Record<string, unknown>
-			});
 			expenseActions.delete(current.id);
+			await hydrateBudgetingData();
 			goto('/expenses');
 		} catch (error) {
 			errorMessage = getErrorMessage(error, 'Failed to delete expense.');
@@ -166,7 +139,11 @@
 			status={current.status}
 		/>
 
-		<AuditLogPanel entityType="expense_entry" entityId={current.id} />
+		<AuditLogPanel
+			entityType="expense_entry"
+			entityId={current.id}
+			rootTransactionId={current.rootTransactionId ?? ''}
+		/>
 	{:else}
 		<div class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
 			<p class="text-sm font-semibold text-gray-700 dark:text-slate-200">Expense not found.</p>

@@ -6,7 +6,7 @@
 	import FilterSelect from '$lib/components/ui/FilterSelect.svelte';
 	import RowActions from '$lib/components/ui/RowActions.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
-	import { expenses, expenseActions, auditLogActions } from '$lib/stores/dataStore';
+	import { expenses, hydrateBudgetingData } from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { expensesApi } from '$lib/api';
 	import { expenseTypeLabel } from '$lib/data/accounting-options';
@@ -52,23 +52,10 @@
 	}
 
 	async function postExpense(expense: ExpenseEntry) {
-		const before = { ...expense } as unknown as Record<string, unknown>;
 		workingId = expense.id;
 		try {
 			await expensesApi.post(expense.id, { postedBy: $user?.name });
-			expenseActions.post(expense.id);
-
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'expense_entry',
-				entityId: expense.id,
-				documentNumber: expense.expenseNo,
-				action: 'post',
-				actor: $user?.name || 'Finance Approver',
-				summary: `Posted expense ${expense.expenseNo} to the general ledger.`,
-				before,
-				after: { ...expense, status: 'completed' } as unknown as Record<string, unknown>
-			});
+			await hydrateBudgetingData();
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to post expense.'));
 		} finally {

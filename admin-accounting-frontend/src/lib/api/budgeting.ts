@@ -1,12 +1,17 @@
 import type { AnnualBudget, BudgetAllocation, BudgetRevision } from '$lib/types';
 import { apiRequest } from './client';
+import {
+	mapAllocationDocument,
+	mapAllocationRow,
+	mapBudgetDocument,
+	mapBudgetHeader,
+	type ApiDocument
+} from './mappers';
 import type {
 	BudgetDecisionPayload,
-	CreateAnnualBudgetPayload,
-	CreateBudgetAllocationPayload,
+	CreateAllocationApiRequest,
+	CreateBudgetApiRequest,
 	CreateBudgetRevisionPayload,
-	UpdateAnnualBudgetPayload,
-	UpdateBudgetAllocationPayload,
 	UpdateBudgetRevisionPayload
 } from './types';
 
@@ -28,65 +33,132 @@ export const budgetingEndpoints = {
 	budgetVsActual: `${BASE}/budget-vs-actual`
 } as const;
 
+async function mapBudgetDocumentRequest(
+	request: Promise<{ data?: ApiDocument }>
+): Promise<{ data: AnnualBudget }> {
+	const result = await request;
+	if (!result.data) {
+		throw new Error('The budgeting API returned an empty response.');
+	}
+	return { data: mapBudgetDocument(result.data) };
+}
+
+async function mapAllocationDocumentRequest(
+	request: Promise<{ data?: ApiDocument }>
+): Promise<{ data: BudgetAllocation }> {
+	const result = await request;
+	if (!result.data) {
+		throw new Error('The budgeting API returned an empty response.');
+	}
+	return { data: mapAllocationDocument(result.data) };
+}
+
 export const budgetingApi = {
-	listBudgets() {
-		return apiRequest<AnnualBudget[]>(budgetingEndpoints.budgets);
+	async listBudgets() {
+		const result = await apiRequest<Record<string, any>[]>(budgetingEndpoints.budgets);
+		return { ...result, data: (result.data ?? []).map(mapBudgetHeader) };
 	},
-	createBudget(payload: CreateAnnualBudgetPayload) {
-		return apiRequest<AnnualBudget>(budgetingEndpoints.budgets, {
-			method: 'POST',
-			body: payload
-		});
+
+	async getBudget(id: string) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.budget(id))
+		);
 	},
-	updateBudget(id: string, payload: UpdateAnnualBudgetPayload) {
-		return apiRequest<AnnualBudget>(budgetingEndpoints.budget(id), {
-			method: 'PUT',
-			body: payload
-		});
+
+	async createBudget(payload: CreateBudgetApiRequest) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.budgets, {
+				method: 'POST',
+				body: payload
+			})
+		);
 	},
+
+	async updateBudget(id: string, payload: CreateBudgetApiRequest) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.budget(id), {
+				method: 'PUT',
+				body: payload
+			})
+		);
+	},
+
 	deleteBudget(id: string) {
 		return apiRequest<null>(budgetingEndpoints.budget(id), { method: 'DELETE' });
 	},
-	submitBudget(id: string) {
-		return apiRequest<AnnualBudget>(budgetingEndpoints.submitBudget(id), {
-			method: 'POST'
-		});
+
+	async submitBudget(id: string, actor?: string) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.submitBudget(id), {
+				method: 'POST',
+				body: { actor }
+			})
+		);
 	},
-	approveBudget(id: string, payload: BudgetDecisionPayload = {}) {
-		return apiRequest<AnnualBudget>(budgetingEndpoints.approveBudget(id), {
-			method: 'POST',
-			body: payload
-		});
+
+	async approveBudget(id: string, payload: BudgetDecisionPayload = {}) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.approveBudget(id), {
+				method: 'POST',
+				body: { actor: payload.approvedBy, reason: payload.reason }
+			})
+		);
 	},
-	rejectBudget(id: string, payload: BudgetDecisionPayload = {}) {
-		return apiRequest<AnnualBudget>(budgetingEndpoints.rejectBudget(id), {
-			method: 'POST',
-			body: payload
-		});
+
+	async rejectBudget(id: string, payload: BudgetDecisionPayload = {}) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.rejectBudget(id), {
+				method: 'POST',
+				body: { actor: payload.approvedBy, reason: payload.reason }
+			})
+		);
 	},
-	closeBudget(id: string) {
-		return apiRequest<AnnualBudget>(budgetingEndpoints.closeBudget(id), {
-			method: 'POST'
-		});
+
+	async closeBudget(id: string, actor?: string) {
+		return mapBudgetDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.closeBudget(id), {
+				method: 'POST',
+				body: { actor }
+			})
+		);
 	},
-	listAllocations() {
-		return apiRequest<BudgetAllocation[]>(budgetingEndpoints.allocations);
+
+	async listAllocations() {
+		const result = await apiRequest<Record<string, any>[]>(budgetingEndpoints.allocations);
+		return { ...result, data: (result.data ?? []).map(mapAllocationRow) };
 	},
-	createAllocation(payload: CreateBudgetAllocationPayload) {
-		return apiRequest<BudgetAllocation>(budgetingEndpoints.allocations, {
-			method: 'POST',
-			body: payload
-		});
+
+	async getAllocation(id: string) {
+		return mapAllocationDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.allocation(id))
+		);
 	},
-	updateAllocation(id: string, payload: UpdateBudgetAllocationPayload) {
-		return apiRequest<BudgetAllocation>(budgetingEndpoints.allocation(id), {
-			method: 'PUT',
-			body: payload
-		});
+
+	async createAllocation(payload: CreateAllocationApiRequest) {
+		return mapAllocationDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.allocations, {
+				method: 'POST',
+				body: payload
+			})
+		);
 	},
+
+	async updateAllocation(id: string, payload: CreateAllocationApiRequest) {
+		return mapAllocationDocumentRequest(
+			apiRequest<ApiDocument>(budgetingEndpoints.allocation(id), {
+				method: 'PUT',
+				body: payload
+			})
+		);
+	},
+
 	deleteAllocation(id: string) {
 		return apiRequest<null>(budgetingEndpoints.allocation(id), { method: 'DELETE' });
 	},
+
+	// Budget revisions are not exposed by the current backend yet. The methods
+	// are kept so existing screens fail with a clear API error instead of a
+	// compile error.
 	listRevisions() {
 		return apiRequest<BudgetRevision[]>(budgetingEndpoints.revisions);
 	},

@@ -386,6 +386,7 @@
 		<AuditLogPanel
 			entityType={type}
 			entityId={String(transaction.header.id)}
+			rootTransactionId={String(transaction.header.root_transaction_id ?? '')}
 			title="Transaction audit log"
 			description="Every create, post, and approval action for this transaction is recorded here with its document reference and amount."
 		/>

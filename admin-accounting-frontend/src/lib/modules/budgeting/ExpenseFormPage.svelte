@@ -7,13 +7,13 @@
 	import {
 		annualBudgets,
 		bankAccounts,
+		budgetAllocations,
 		chartOfAccounts,
 		departments,
 		employees,
 		expenses,
-		expenseActions,
 		suppliers,
-		auditLogActions
+		hydrateBudgetingData
 	} from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { expensesApi } from '$lib/api';
@@ -268,170 +268,130 @@
 	*/
 
 	async function save() {
-	if (!form.date || !form.expenseNo.trim() || !form.description.trim()) {
-		alert('Date, expense number and description are required.');
-		return;
-	}
+		if (!form.date || !form.description.trim()) {
+			alert('Date and description are required.');
+			return;
+		}
 
-	if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) {
-		alert('Expense amount must be greater than zero.');
-		return;
-	}
+		if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) {
+			alert('Expense amount must be greater than zero.');
+			return;
+		}
 
-	if (!form.departmentCode) {
-		alert('Department is required for budget control.');
-		return;
-	}
+		if (!form.departmentCode) {
+			alert('Department is required for budget control.');
+			return;
+		}
 
-	const payload: CreateExpensePayload = {
-		...form,
-		amount: Number(form.amount),
-		taxAmount: Number(form.taxAmount) || 0,
-		totalAmount,
-		submittedBy: form.submittedBy || $user?.name || '',
-		approvedBy: expense?.approvedBy ?? form.approvedBy,
-		postedAt: expense?.postedAt ?? form.postedAt,
-		glReference: expense?.glReference ?? form.glReference
-	};
+		const payload: CreateExpensePayload = {
+			...form,
+			amount: Number(form.amount),
+			taxAmount: Number(form.taxAmount) || 0,
+			totalAmount,
+			submittedBy: form.submittedBy || $user?.name || '',
+			approvedBy: expense?.approvedBy ?? form.approvedBy,
+			postedAt: expense?.postedAt ?? form.postedAt,
+			glReference: expense?.glReference ?? form.glReference
+		};
 
-	const before = expense
-		? (expense as unknown as Record<string, unknown>)
-		: null;
+		saving = true;
 
-	saving = true;
+		try {
+			const selectedAccount = $chartOfAccounts.find(
+				(item) => item.code === payload.accountCode && item.category === 'Expense'
+			);
+			const selectedDepartment = $departments.find(
+				(item) => item.code === payload.departmentCode
+			);
+			const selectedBudget = $annualBudgets.find(
+				(item) => String(item.id) === String(payload.budgetId)
+			);
+			const selectedEmployee = $employees.find(
+				(item) => String(item.id) === String(payload.employeeId)
+			);
+			const selectedSupplier = $suppliers.find(
+				(item) =>
+					item.companyName === payload.supplierName ||
+					item.contactPerson === payload.supplierName
+			);
+			const selectedBankAccount = $bankAccounts.find(
+				(item) => item.code === payload.bankAccount
+			);
 
-	try {
-		// Cari record master berdasarkan nilai yang dipilih di form.
-		const selectedAccount = $chartOfAccounts.find(
-			(item) =>
-				item.code === payload.accountCode &&
-				item.category === 'Expense'
-		);
+			const toNumericId = (value: unknown): number | null => {
+				if (value === null || value === undefined || value === '') return null;
+				const id = Number(value);
+				return Number.isSafeInteger(id) && id > 0 ? id : null;
+			};
 
-		const selectedDepartment = $departments.find(
-			(item) => item.code === payload.departmentCode
-		);
-
-		const selectedBudget = $annualBudgets.find(
-			(item) => String(item.id) === String(payload.budgetId)
-		);
-
-		const selectedEmployee = $employees.find(
-			(item) => String(item.id) === String(payload.employeeId)
-		);
-
-		const selectedSupplier = $suppliers.find(
-			(item) =>
-				item.companyName === payload.supplierName ||
-				item.name === payload.supplierName
-		);
-
-		const selectedBankAccount = $bankAccounts.find(
-			(item) => item.code === payload.bankAccount
-		);
-
-		// Backend mengharapkan primary key numerik, bukan kode akun.
-		const toNumericId = (value: unknown): number | null => {
-			if (value === null || value === undefined || value === '') {
-				return null;
+			const coaId = toNumericId(selectedAccount?.id);
+			if (coaId === null) {
+				throw new Error(
+					`Database ID for expense account "${payload.accountCode}" was not found.`
+				);
+			}
+			if (!selectedDepartment) {
+				throw new Error(`Department "${payload.departmentCode}" was not found.`);
 			}
 
-			const id = Number(value);
-
-			return Number.isSafeInteger(id) && id > 0 ? id : null;
-		};
-
-		const coaId = toNumericId(selectedAccount?.id);
-
-		if (coaId === null) {
-			throw new Error(
-				`Database ID for expense account "${payload.accountCode}" was not found.`
+			// Resolve the matching allocation line so posting can consume the
+			// budget atomically. The header stores the allocation id, while the
+			// expense line must reference the allocation detail id.
+			const selectedAllocation = $budgetAllocations.find(
+				(allocation) =>
+					String(allocation.budgetId) === String(payload.budgetId) &&
+					allocation.accountCode === payload.accountCode &&
+					(!payload.departmentCode ||
+						!allocation.departmentCode ||
+						allocation.departmentCode === payload.departmentCode) &&
+					Number(allocation.allocatedAmount) - Number(allocation.usedAmount) >= totalAmount
 			);
+
+			const references: ExpenseApiReferences = {
+				departmentId: toNumericId(selectedDepartment.id),
+				costCenterId: null,
+				budgetPlanId: toNumericId(selectedBudget?.id),
+				budgetAllocationId: toNumericId(selectedAllocation?.id),
+				lineBudgetAllocationId: toNumericId(selectedAllocation?.detailId),
+				employeeId: toNumericId(selectedEmployee?.id),
+				supplierId: toNumericId(selectedSupplier?.id),
+				bankAccountId: toNumericId(selectedBankAccount?.id),
+				preparedBy: toNumericId($user?.id),
+				coaId,
+				taxRateId: null
+			};
+
+			if (references.departmentId === null) {
+				throw new Error('Department database ID is missing or is not numeric.');
+			}
+
+			const apiPayload = mapExpenseToApi(payload, references);
+			// New expenses must let the backend generate the document number;
+			// a client-generated sequence collides with the DB unique key.
+			if (!expense) apiPayload.document_number = null;
+
+			const result = expense
+				? await expensesApi.update(expense.id, apiPayload)
+				: await expensesApi.create(apiPayload);
+			const saved = result.data;
+
+			expenses.update((list) => {
+				const index = list.findIndex((item) => item.id === saved.id);
+				if (index === -1) return [saved, ...list];
+				const next = [...list];
+				next[index] = saved;
+				return next;
+			});
+			await hydrateBudgetingData();
+
+			goto(`/expenses/${saved.id}`);
+		} catch (error) {
+			console.error('Failed to save expense:', error);
+			alert(error instanceof Error ? error.message : 'Failed to save expense.');
+		} finally {
+			saving = false;
 		}
-
-		if (!selectedDepartment) {
-			throw new Error(
-				`Department "${payload.departmentCode}" was not found.`
-			);
-		}
-
-		const references: ExpenseApiReferences = {
-			departmentId: toNumericId(selectedDepartment.id),
-
-			// Isi setelah ID cost center dan budget allocation tersedia
-			// dari master data backend.
-			costCenterId: null,
-			budgetPlanId: toNumericId(selectedBudget?.id),
-			budgetAllocationId: null,
-
-			employeeId: toNumericId(selectedEmployee?.id),
-			supplierId: toNumericId(selectedSupplier?.id),
-			bankAccountId: toNumericId(selectedBankAccount?.id),
-
-			preparedBy: toNumericId($user?.id),
-			coaId,
-			taxRateId: null
-		};
-
-		if (references.departmentId === null) {
-			throw new Error(
-				'Department database ID is missing or is not numeric.'
-			);
-		}
-
-		const apiPayload = mapExpenseToApi(payload, references);
-
-		console.log('Expense form payload:', payload);
-		console.log('Expense API request:', apiPayload);
-
-		let saved: ExpenseEntry;
-
-		if (expense) {
-			// UPDATE
-			await expensesApi.update(expense.id, payload);
-
-			expenseActions.update(expense.id, payload);
-
-			saved = {
-				...expense,
-				...payload
-			} as ExpenseEntry;
-		} else {
-			// CREATE — kirim payload dengan format sesuai DTO backend Rust.
-			await expensesApi.create(apiPayload);
-
-			// Pertahankan struktur store frontend yang menggunakan camelCase.
-			saved = expenseActions.add(
-				payload as Omit<ExpenseEntry, 'id'>
-			);
-		}
-
-		auditLogActions.record({
-			module: 'budgeting',
-			entityType: 'expense_entry',
-			entityId: saved.id,
-			documentNumber: saved.expenseNo,
-			action: expense ? 'update' : 'create',
-			actor: $user?.name || 'Expense Owner',
-			summary: `${expense ? 'Updated' : 'Created'} expense ${saved.expenseNo} — ${saved.description}.`,
-			description: saved.description,
-			before,
-			after: saved as unknown as Record<string, unknown>
-		});
-
-		goto(`/expenses/${saved.id}`);
-	} catch (error) {
-		console.error('Failed to save expense:', error);
-
-		alert(
-			error instanceof Error
-				? error.message
-				: 'Failed to save expense.'
-		);
-	} finally {
-		saving = false;
 	}
-}
 
 	function handleCancel() {
 		goto(backHref);
@@ -680,6 +640,10 @@
 	</form>
 
 	{#if expense}
-		<AuditLogPanel entityType="expense_entry" entityId={expense.id} />
+		<AuditLogPanel
+			entityType="expense_entry"
+			entityId={expense.id}
+			rootTransactionId={expense.rootTransactionId ?? ''}
+		/>
 	{/if}
 </TransactionPageShell>

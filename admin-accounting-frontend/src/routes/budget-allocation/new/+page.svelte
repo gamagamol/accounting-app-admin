@@ -3,16 +3,15 @@
 	import EntityFormPage from '$lib/components/transactions/EntityFormPage.svelte';
 	import {
 		annualBudgets,
-		budgetingActions,
 		chartOfAccounts,
 		departments,
-		auditLogActions
+		hydrateBudgetingData
 	} from '$lib/stores/dataStore';
 	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import {
 		buildBudgetAllocationFields,
-		buildBudgetAllocationPayload
+		mapBudgetAllocationToApi
 	} from '$lib/modules/budgeting/budgetAllocationFields';
 
 	$: fields = buildBudgetAllocationFields($annualBudgets, $chartOfAccounts, $departments);
@@ -27,20 +26,17 @@
 	};
 
 	async function handleSubmit(payload: Record<string, any>) {
-		const fullPayload = buildBudgetAllocationPayload(payload, $annualBudgets, $chartOfAccounts, $departments);
-		await budgetingApi.createAllocation(fullPayload);
-		const created = budgetingActions.addAllocation(fullPayload);
-		auditLogActions.record({
-			module: 'budgeting',
-			entityType: 'budget_allocation',
-			entityId: created.id,
-			documentNumber: `${created.budgetNo} / ${created.accountCode}`,
-			action: 'create',
-			actor: $user?.name || 'Budget Owner',
-			summary: `Created budget allocation for ${created.accountCode} on ${created.budgetNo}.`,
-			after: created as unknown as Record<string, unknown>
-		});
-		goto(`/budget-allocation/${created.id}`);
+		const preparedBy = Number($user?.id);
+		const apiPayload = mapBudgetAllocationToApi(
+			payload,
+			$annualBudgets,
+			$chartOfAccounts,
+			$departments,
+			Number.isSafeInteger(preparedBy) && preparedBy > 0 ? preparedBy : null
+		);
+		const result = await budgetingApi.createAllocation(apiPayload);
+		await hydrateBudgetingData();
+		goto(`/budget-allocation/${result.data.id}`);
 	}
 </script>
 

@@ -3,12 +3,10 @@
 	import {
 		annualBudgets,
 		budgetAllocations,
-		budgetingActions,
 		chartOfAccounts,
 		departments,
-		auditLogActions
+		hydrateBudgetingData
 	} from '$lib/stores/dataStore';
-	import { user } from '$lib/stores/auth';
 	import { budgetingApi } from '$lib/api';
 	import { buildBudgetAllocationFields } from '$lib/modules/budgeting/budgetAllocationFields';
 	import { formatCurrency } from '$lib/utils/formatters';
@@ -42,17 +40,7 @@
 		if (!confirm(`Delete allocation for ${item.accountCode}? This action cannot be undone.`)) return;
 		try {
 			await budgetingApi.deleteAllocation(id);
-			auditLogActions.record({
-				module: 'budgeting',
-				entityType: 'budget_allocation',
-				entityId: item.id,
-				documentNumber: `${item.budgetNo} / ${item.accountCode}`,
-				action: 'delete',
-				actor: $user?.name || 'Budget Owner',
-				summary: `Deleted budget allocation ${item.accountCode} on ${item.budgetNo}.`,
-				before: item as unknown as Record<string, unknown>
-			});
-			budgetingActions.deleteAllocation(id);
+			await hydrateBudgetingData();
 		} catch (error) {
 			alert(getErrorMessage(error, 'Failed to delete budget allocation.'));
 		}

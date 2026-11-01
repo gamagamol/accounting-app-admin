@@ -16,6 +16,7 @@
 	export let onSubmit: (payload: Record<string, any>) => void | Promise<void> = () => {};
 	export let auditEntityType: string = '';
 	export let auditEntityId: string = '';
+	export let auditRootTransactionId: string = '';
 	export let documentNumber: string = '';
 
 	let form: Record<string, any> = {};
@@ -148,6 +149,10 @@
 	</form>
 
 	{#if auditEntityType && auditEntityId}
-		<AuditLogPanel entityType={auditEntityType} entityId={auditEntityId} />
+		<AuditLogPanel
+			entityType={auditEntityType}
+			entityId={auditEntityId}
+			rootTransactionId={auditRootTransactionId}
+		/>
 	{/if}
 </TransactionPageShell>

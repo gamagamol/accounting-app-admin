@@ -45,6 +45,9 @@ pub trait ITransactionRepo: Send + Sync {
         doc_type: DocumentType,
         date: chrono::NaiveDate,
     ) -> Result<String, String>;
+    /// Generate the root id for a new lifecycle origin.
+    async fn next_root_transaction_id(&self, date: chrono::NaiveDate)
+    -> Result<String, String>;
 
     async fn create_quotation(
         &self,

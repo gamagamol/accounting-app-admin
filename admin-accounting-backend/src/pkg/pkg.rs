@@ -14,6 +14,7 @@ pub mod helper {
 }
 
 pub mod response {
+    pub mod api_json;
     pub mod response_error;
     pub mod response_success;
 }

@@ -266,6 +266,9 @@ pub struct TransactionResponse {
 
 #[derive(Debug, Clone)]
 pub struct PreparedHeader {
+    /// Origin of the whole lifecycle (QT -> SO -> DO -> Invoice -> Payment,
+    /// or PO -> GR -> Invoice -> Payment). All children inherit this value.
+    pub root_transaction_id: String,
     pub document_number: String,
     pub transaction_number: String,
     pub document_date: NaiveDate,
@@ -333,6 +336,7 @@ pub struct PreparedLine {
 #[derive(Debug, Clone)]
 pub struct HeaderSnapshot {
     pub id: i64,
+    pub root_transaction_id: String,
     pub document_number: String,
     pub document_date: NaiveDate,
     pub customer_id: Option<i64>,

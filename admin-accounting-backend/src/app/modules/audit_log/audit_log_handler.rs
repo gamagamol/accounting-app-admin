@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::extract::{Extension, Path, Query};
-use axum::http::StatusCode;
 
-use super::audit_log_dto::{CreateAuditDto, DeleteEntityAuditResponse, ListAuditQuery};
+use super::audit_log_dto::{CreateAuditDto, ListAuditQuery};
 use super::audit_log_entity::AuditLogEntry;
 use super::audit_log_interfaces::IAuditLogUsecase;
+use crate::pkg::response::api_json::ApiJson;
 use crate::pkg::response::response_error::AppResult;
 use crate::pkg::response::response_success::ApiResponse;
 
@@ -25,6 +25,18 @@ impl AuditLogHandler {
         )))
     }
 
+    /// Full chronological lifecycle for one root transaction.
+    pub async fn timeline(
+        Extension(usecase): Extension<Arc<dyn IAuditLogUsecase>>,
+        Path(root_transaction_id): Path<String>,
+    ) -> AppResult<Json<ApiResponse<Vec<AuditLogEntry>>>> {
+        let entries = usecase.timeline(&root_transaction_id).await?;
+        Ok(Json(ApiResponse::success(
+            "Audit timeline retrieved successfully",
+            entries,
+        )))
+    }
+
     pub async fn get_by_id(
         Extension(usecase): Extension<Arc<dyn IAuditLogUsecase>>,
         Path(id): Path<String>,
@@ -38,37 +50,12 @@ impl AuditLogHandler {
 
     pub async fn create(
         Extension(usecase): Extension<Arc<dyn IAuditLogUsecase>>,
-        Json(dto): Json<CreateAuditDto>,
-    ) -> AppResult<(StatusCode, Json<ApiResponse<AuditLogEntry>>)> {
-        let created = usecase.create(dto).await?;
-        Ok((
-            StatusCode::CREATED,
-            Json(ApiResponse::success(
-                "Audit log created successfully",
-                created,
-            )),
-        ))
-    }
-
-    pub async fn delete(
-        Extension(usecase): Extension<Arc<dyn IAuditLogUsecase>>,
-        Path(id): Path<String>,
-    ) -> AppResult<Json<ApiResponse<()>>> {
-        usecase.delete(&id).await?;
+        ApiJson(dto): ApiJson<CreateAuditDto>,
+    ) -> AppResult<Json<ApiResponse<AuditLogEntry>>> {
+        let entry = usecase.create(dto).await?;
         Ok(Json(ApiResponse::success(
-            "Audit log deleted successfully",
-            (),
-        )))
-    }
-
-    pub async fn delete_for_entity(
-        Extension(usecase): Extension<Arc<dyn IAuditLogUsecase>>,
-        Path((entity_type, entity_id)): Path<(String, String)>,
-    ) -> AppResult<Json<ApiResponse<DeleteEntityAuditResponse>>> {
-        let deleted = usecase.delete_for_entity(&entity_type, &entity_id).await?;
-        Ok(Json(ApiResponse::success(
-            "Audit logs deleted for entity successfully",
-            DeleteEntityAuditResponse { deleted },
+            "Audit log created successfully",
+            entry,
         )))
     }
 }

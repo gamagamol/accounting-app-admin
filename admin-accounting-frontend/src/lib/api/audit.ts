@@ -4,6 +4,7 @@ import type { AuditLogEntry } from '$lib/types';
 const BASE = '/api/audit-logs';
 
 export interface AuditLogListOptions {
+	rootTransactionId?: string;
 	module?: string;
 	entityType?: string;
 	entityId?: string;
@@ -15,13 +16,14 @@ export interface AuditLogListOptions {
 /**
  * Audit trail API.
  *
- * Audit entries are persisted in MongoDB by the backend; there is no
- * PostgreSQL audit table. The frontend mirrors new entries into the local
- * store so the UI updates immediately, then syncs them through this client.
+ * Audit entries are written by the backend and are append-only. The frontend
+ * never posts audit entries itself; it only reads the activity feed or the
+ * chronological lifecycle for a root transaction.
  */
 export const auditApi = {
 	list(options: AuditLogListOptions = {}) {
 		const params = new URLSearchParams();
+		if (options.rootTransactionId) params.set('rootTransactionId', options.rootTransactionId);
 		if (options.module) params.set('module', options.module);
 		if (options.entityType) params.set('entityType', options.entityType);
 		if (options.entityId) params.set('entityId', options.entityId);
@@ -35,16 +37,13 @@ export const auditApi = {
 	get(id: string) {
 		return apiRequest<AuditLogEntry>(`${BASE}/${encodeURIComponent(id)}`);
 	},
-	create(entry: AuditLogEntry) {
-		return apiRequest<AuditLogEntry>(BASE, { method: 'POST', body: entry });
-	},
-	delete(id: string) {
-		return apiRequest<null>(`${BASE}/${encodeURIComponent(id)}`, { method: 'DELETE' });
-	},
-	deleteForEntity(entityType: string, entityId: string) {
-		return apiRequest<{ deleted: number }>(
-			`${BASE}/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
-			{ method: 'DELETE' }
+	/**
+	 * Full chronological lifecycle for one root transaction. The backend sorts
+	 * oldest-first so the chain reads QT -> SO -> DO -> Invoice -> Payment.
+	 */
+	timeline(rootTransactionId: string) {
+		return apiRequest<AuditLogEntry[]>(
+			`${BASE}/timeline/${encodeURIComponent(rootTransactionId)}`
 		);
 	}
 };

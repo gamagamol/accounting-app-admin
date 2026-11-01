@@ -45,6 +45,7 @@ impl TransactionUsecase {
         };
 
         Ok(PreparedHeader {
+            root_transaction_id: String::new(),
             document_number: document_number.clone(),
             transaction_number: document_number,
             document_date: dto.document_date,
@@ -718,7 +719,7 @@ impl TransactionUsecase {
     async fn prepare_customer_receipt_lines(
         &self,
         dto_lines: &[CreateTransactionLineDto],
-    ) -> Result<(i64, Vec<PreparedLine>, f64), AppError> {
+    ) -> Result<(i64, Vec<PreparedLine>, f64, String), AppError> {
         if dto_lines.is_empty() {
             return Err(AppError::BadRequest(
                 "At least one sales invoice must be selected for the receipt".to_string(),
@@ -726,6 +727,7 @@ impl TransactionUsecase {
         }
 
         let mut customer_id: Option<i64> = None;
+        let mut root_transaction_id: Option<String> = None;
         let mut total_amount = 0.0;
         let mut lines = Vec::new();
 
@@ -758,6 +760,25 @@ impl TransactionUsecase {
                 customer_id = invoice.customer_id;
             }
 
+            // A receipt may settle several partial invoices, but they must
+            // all belong to the same lifecycle. Otherwise the audit timeline
+            // would silently merge two unrelated transaction chains.
+            if invoice.root_transaction_id.trim().is_empty() {
+                return Err(AppError::BadRequest(format!(
+                    "Sales invoice {invoice_id} has no root transaction id"
+                )));
+            }
+            if let Some(existing_root) = &root_transaction_id {
+                if existing_root != &invoice.root_transaction_id {
+                    return Err(AppError::BadRequest(
+                        "All invoices in one receipt must belong to the same root transaction"
+                            .to_string(),
+                    ));
+                }
+            } else {
+                root_transaction_id = Some(invoice.root_transaction_id.clone());
+            }
+
             let amount = dto.amount.unwrap_or(invoice.outstanding_amount);
             if amount <= 0.0 || amount > invoice.outstanding_amount + 0.0001 {
                 return Err(AppError::BadRequest(format!(
@@ -777,14 +798,22 @@ impl TransactionUsecase {
         let customer_id = customer_id.ok_or_else(|| {
             AppError::BadRequest("Unable to determine customer for receipt".into())
         })?;
+        let root_transaction_id = root_transaction_id.ok_or_else(|| {
+            AppError::BadRequest("Unable to determine root transaction for receipt".into())
+        })?;
 
-        Ok((customer_id, lines, round2(total_amount)))
+        Ok((
+            customer_id,
+            lines,
+            round2(total_amount),
+            root_transaction_id,
+        ))
     }
 
     async fn prepare_vendor_payment_lines(
         &self,
         dto_lines: &[CreateTransactionLineDto],
-    ) -> Result<(i64, Vec<PreparedLine>, f64), AppError> {
+    ) -> Result<(i64, Vec<PreparedLine>, f64, String), AppError> {
         if dto_lines.is_empty() {
             return Err(AppError::BadRequest(
                 "At least one purchase invoice must be selected for the payment".to_string(),
@@ -792,6 +821,7 @@ impl TransactionUsecase {
         }
 
         let mut supplier_id: Option<i64> = None;
+        let mut root_transaction_id: Option<String> = None;
         let mut total_amount = 0.0;
         let mut lines = Vec::new();
 
@@ -824,6 +854,22 @@ impl TransactionUsecase {
                 supplier_id = invoice.supplier_id;
             }
 
+            if invoice.root_transaction_id.trim().is_empty() {
+                return Err(AppError::BadRequest(format!(
+                    "Purchase invoice {invoice_id} has no root transaction id"
+                )));
+            }
+            if let Some(existing_root) = &root_transaction_id {
+                if existing_root != &invoice.root_transaction_id {
+                    return Err(AppError::BadRequest(
+                        "All invoices in one payment must belong to the same root transaction"
+                            .to_string(),
+                    ));
+                }
+            } else {
+                root_transaction_id = Some(invoice.root_transaction_id.clone());
+            }
+
             let amount = dto.amount.unwrap_or(invoice.outstanding_amount);
             if amount <= 0.0 || amount > invoice.outstanding_amount + 0.0001 {
                 return Err(AppError::BadRequest(format!(
@@ -843,8 +889,16 @@ impl TransactionUsecase {
         let supplier_id = supplier_id.ok_or_else(|| {
             AppError::BadRequest("Unable to determine supplier for payment".into())
         })?;
+        let root_transaction_id = root_transaction_id.ok_or_else(|| {
+            AppError::BadRequest("Unable to determine root transaction for payment".into())
+        })?;
 
-        Ok((supplier_id, lines, round2(total_amount)))
+        Ok((
+            supplier_id,
+            lines,
+            round2(total_amount),
+            root_transaction_id,
+        ))
     }
 
     async fn parent_document_number(
@@ -1101,6 +1155,7 @@ impl TransactionUsecase {
         let result = self
             .audit
             .create(CreateAuditDto {
+                root_transaction_id: header.root_transaction_id.clone(),
                 module: "transactions".to_string(),
                 entity_type: doc_type.as_str().to_string(),
                 entity_id: id.to_string(),
@@ -1176,6 +1231,11 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.tax_rate_id = dto.tax_rate_id;
                 header.salesperson_id = dto.salesperson_id;
                 header.valid_until = dto.valid_until;
+                header.root_transaction_id = self
+                    .repo
+                    .next_root_transaction_id(dto.document_date)
+                    .await
+                    .map_err(AppError::Database)?;
                 self.repo
                     .create_quotation(&header, &lines)
                     .await
@@ -1220,6 +1280,7 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.tax_rate_id = quotation.tax_rate_id;
                 header.salesperson_id = quotation.salesperson_id;
                 header.delivery_date = dto.delivery_date;
+                header.root_transaction_id = quotation.root_transaction_id;
                 self.repo
                     .create_sales_order(&header, &lines)
                     .await
@@ -1238,6 +1299,7 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.warehouse_id = Some(dto.warehouse_id.unwrap_or(1));
                 header.payment_term_id = sales_order.payment_term_id;
                 header.tax_rate_id = sales_order.tax_rate_id;
+                header.root_transaction_id = sales_order.root_transaction_id;
                 header.status = "completed".to_string();
                 self.repo
                     .create_delivery(&header, &lines)
@@ -1256,6 +1318,7 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.delivery_id = Some(delivery_id);
                 header.payment_term_id = sales_order.payment_term_id;
                 header.tax_rate_id = sales_order.tax_rate_id;
+                header.root_transaction_id = delivery.root_transaction_id;
                 header.due_date = Some(dto.due_date.unwrap_or(dto.document_date + Days::new(30)));
                 header.status = "completed".to_string();
                 self.repo
@@ -1264,9 +1327,10 @@ impl ITransactionUsecase for TransactionUsecase {
                     .map_err(AppError::Database)?
             }
             DocumentType::CustomerReceipt => {
-                let (customer_id, lines, total) =
+                let (customer_id, lines, total, root) =
                     self.prepare_customer_receipt_lines(&dto.lines).await?;
                 header.customer_id = Some(customer_id);
+                header.root_transaction_id = root;
                 header.total_amount = total;
                 header.allocated_amount = total;
                 header.unallocated_amount = 0.0;
@@ -1295,6 +1359,11 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.payment_term_id = dto.payment_term_id;
                 header.tax_rate_id = dto.tax_rate_id;
                 header.expected_date = dto.expected_date;
+                header.root_transaction_id = self
+                    .repo
+                    .next_root_transaction_id(dto.document_date)
+                    .await
+                    .map_err(AppError::Database)?;
                 self.repo
                     .create_purchase_order(&header, &lines)
                     .await
@@ -1313,6 +1382,7 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.warehouse_id = Some(dto.warehouse_id.unwrap_or(1));
                 header.payment_term_id = purchase_order.payment_term_id;
                 header.tax_rate_id = purchase_order.tax_rate_id;
+                header.root_transaction_id = purchase_order.root_transaction_id;
                 header.status = "completed".to_string();
                 self.repo
                     .create_goods_receipt(&header, &lines)
@@ -1332,6 +1402,7 @@ impl ITransactionUsecase for TransactionUsecase {
                 header.goods_receipt_id = Some(goods_receipt_id);
                 header.payment_term_id = purchase_order.payment_term_id;
                 header.tax_rate_id = purchase_order.tax_rate_id;
+                header.root_transaction_id = goods_receipt.root_transaction_id;
                 header.due_date = Some(dto.due_date.unwrap_or(dto.document_date + Days::new(30)));
                 header.status = "completed".to_string();
                 self.repo
@@ -1340,9 +1411,10 @@ impl ITransactionUsecase for TransactionUsecase {
                     .map_err(AppError::Database)?
             }
             DocumentType::VendorPayment => {
-                let (supplier_id, lines, total) =
+                let (supplier_id, lines, total, root) =
                     self.prepare_vendor_payment_lines(&dto.lines).await?;
                 header.supplier_id = Some(supplier_id);
+                header.root_transaction_id = root;
                 header.total_amount = total;
                 header.allocated_amount = total;
                 header.unallocated_amount = 0.0;
@@ -1413,6 +1485,7 @@ impl ITransactionUsecase for TransactionUsecase {
         };
 
         let prepared_header = PreparedHeader {
+            root_transaction_id: header.root_transaction_id.clone(),
             document_number: header.document_number.clone(),
             transaction_number: header.document_number.clone(),
             document_date: header.document_date,

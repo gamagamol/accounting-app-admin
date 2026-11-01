@@ -53,6 +53,26 @@ interface RequestOptions {
 }
 
 /**
+ * Flatten the backend `errors` payload into a readable string so forms can
+ * show which field failed validation instead of only a generic message.
+ */
+function formatErrorDetails(errors: unknown): string {
+	if (errors === null || errors === undefined) return '';
+	if (typeof errors === 'string') return errors;
+	if (Array.isArray(errors)) {
+		return errors
+			.map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+			.join('; ');
+	}
+	if (typeof errors === 'object') {
+		return Object.entries(errors as Record<string, unknown>)
+			.map(([field, value]) => `${field}: ${String(value)}`)
+			.join('; ');
+	}
+	return String(errors);
+}
+
+/**
  * Central API gateway.
  *
  * When VITE_API_BASE_URL is not configured the request is not sent to the
@@ -111,8 +131,10 @@ export async function apiRequest<T>(
 		const parsed = text ? JSON.parse(text) : null;
 
 		if (!response.ok) {
-			const message =
+			const baseMessage =
 				(parsed && (parsed.message as string)) || `Request failed with status ${response.status}`;
+			const details = formatErrorDetails(parsed?.errors);
+			const message = details ? `${baseMessage} (${details})` : baseMessage;
 			recordCall({
 				method,
 				path: versionedPath,

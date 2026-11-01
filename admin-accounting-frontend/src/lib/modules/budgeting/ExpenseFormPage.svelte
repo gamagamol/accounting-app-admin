@@ -613,6 +613,7 @@
 						<option value={form.status}>{statusLabel(form.status)}</option>
 					{:else}
 						<option value="draft">Draft</option>
+						<option value="approved">Approved</option>
 						<option value="pending">Pending approval</option>
 					{/if}
 				</select>

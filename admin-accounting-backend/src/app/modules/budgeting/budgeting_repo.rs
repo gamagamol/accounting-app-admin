@@ -464,11 +464,7 @@ impl IBudgetingRepo for BudgetingRepo {
         Ok(id)
     }
 
-    async fn update_allocation(
-        &self,
-        id: i64,
-        dto: &CreateAllocationDto,
-    ) -> Result<(), AppError> {
+    async fn update_allocation(&self, id: i64, dto: &CreateAllocationDto) -> Result<(), AppError> {
         let mut tx = self.pool.begin().await.map_err(db_error)?;
         let status: Option<String> =
             sqlx::query_scalar("SELECT status FROM budget_allocation WHERE id = $1 FOR UPDATE")
@@ -476,7 +472,8 @@ impl IBudgetingRepo for BudgetingRepo {
                 .fetch_optional(&mut *tx)
                 .await
                 .map_err(db_error)?;
-        let status = status.ok_or_else(|| AppError::NotFound("Budget allocation not found".into()))?;
+        let status =
+            status.ok_or_else(|| AppError::NotFound("Budget allocation not found".into()))?;
         if status != "draft" && status != "rejected" {
             return Err(AppError::Conflict(
                 "Only draft or rejected allocations can be edited".to_string(),
@@ -549,7 +546,8 @@ impl IBudgetingRepo for BudgetingRepo {
                 .fetch_optional(&mut *tx)
                 .await
                 .map_err(db_error)?;
-        let status = status.ok_or_else(|| AppError::NotFound("Budget allocation not found".into()))?;
+        let status =
+            status.ok_or_else(|| AppError::NotFound("Budget allocation not found".into()))?;
         if status != "draft" && status != "rejected" {
             return Err(AppError::Conflict(
                 "Only draft or rejected allocations can be deleted".to_string(),
@@ -740,13 +738,12 @@ impl IBudgetingRepo for BudgetingRepo {
         grand_total: f64,
     ) -> Result<(), AppError> {
         let mut tx = self.pool.begin().await.map_err(db_error)?;
-        let status: Option<String> = sqlx::query_scalar(
-            "SELECT status FROM accounting_expense WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(db_error)?;
+        let status: Option<String> =
+            sqlx::query_scalar("SELECT status FROM accounting_expense WHERE id = $1 FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(db_error)?;
         let status = status.ok_or_else(|| AppError::NotFound("Expense not found".into()))?;
         if status != "draft" && status != "rejected" && status != "created" {
             return Err(AppError::Conflict(
@@ -852,7 +849,8 @@ impl IBudgetingRepo for BudgetingRepo {
     }
 
     async fn approve_expense(&self, id: i64, actor_id: Option<i64>) -> Result<(), AppError> {
-        self.set_expense_status(id, "approved", actor_id, None).await
+        self.set_expense_status(id, "approved", actor_id, None)
+            .await
     }
 
     async fn post_expense(&self, id: i64, actor_id: Option<i64>) -> Result<(), AppError> {
@@ -929,10 +927,11 @@ impl IBudgetingRepo for BudgetingRepo {
         .await
         .map_err(db_error)?;
 
-        let ap_id: i64 = sqlx::query_scalar("SELECT id FROM masterdata_coa WHERE account_code = '210'")
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(db_error)?;
+        let ap_id: i64 =
+            sqlx::query_scalar("SELECT id FROM masterdata_coa WHERE account_code = '210'")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(db_error)?;
         let input_vat_id: i64 =
             sqlx::query_scalar("SELECT id FROM masterdata_coa WHERE account_code = '211'")
                 .fetch_one(&mut *tx)
@@ -1062,7 +1061,9 @@ fn normalize_payment_method(value: Option<&str>) -> &str {
     match value.map(|value| value.trim().to_ascii_lowercase()) {
         Some(value) if value == "cash" => "cash",
         Some(value) if value == "check" || value == "cheque" => "check",
-        Some(value) if value == "transfer" || value == "bank transfer" || value == "bank_transfer" => {
+        Some(value)
+            if value == "transfer" || value == "bank transfer" || value == "bank_transfer" =>
+        {
             "transfer"
         }
         Some(_) => "transfer",

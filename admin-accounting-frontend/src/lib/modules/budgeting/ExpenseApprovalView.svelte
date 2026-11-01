@@ -14,7 +14,7 @@
 	import { getErrorMessage } from '$lib/utils/errors';
 	import type { ExpenseEntry, ExpenseType, TableColumn } from '$lib/types';
 
-	let statusFilter = 'pending';
+	let statusFilter = 'all';
 	let workingId = '';
 
 	const stageOptions = [
@@ -52,17 +52,31 @@
 	}
 
 	async function postExpense(expense: ExpenseEntry) {
-		workingId = expense.id;
-		try {
-			await expensesApi.post(expense.id, { postedBy: $user?.name });
-			await hydrateBudgetingData();
-		} catch (error) {
-			alert(getErrorMessage(error, 'Failed to post expense.'));
-		} finally {
-			workingId = '';
-		}
+	workingId = expense.id;
+	try {
+		await expensesApi.post(expense.id, { postedBy: $user?.name });
+		await hydrateBudgetingData();
+	} catch (error) {
+		alert(getErrorMessage(error, 'Failed to post expense.'));
+	} finally {
+		workingId = '';
 	}
+}
+	async function approvedExpense(expense: ExpenseEntry) {
+		workingId = expense.id;
+	try {
+		await expensesApi.approve(expense.id, { approvedBy: $user?.name });
+		await hydrateBudgetingData();
+
+	} catch (error) {
+		alert(getErrorMessage(error, 'Failed to approved expense.'));
+	} finally {
+		workingId = '';
+	}
+}
+
 </script>
+
 
 <div class="space-y-6">
 	<PageHeader
@@ -99,6 +113,24 @@
 				viewTitle="View expense"
 				gap="normal"
 			>
+
+				{#if ['pending', 'draft'].includes(row.status)}
+					<Button
+						size="sm"
+						variant="success"
+						disabled={workingId === row.id}
+						on:click={() => approvedExpense(row)}
+					>
+						<span title="Approve expense" aria-label="Approve expense">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24"
+								fill="none" stroke="currentColor" stroke-width="2"
+								stroke-linecap="round" stroke-linejoin="round">
+								<path d="M20 6 9 17l-5-5" />
+							</svg>
+						</span>
+					</Button>
+				{/if}
+
 				{#if row.status === 'approved'}
 					<Button
 						size="sm"
@@ -106,7 +138,13 @@
 						disabled={workingId === row.id}
 						on:click={() => postExpense(row)}
 					>
-						Post to GL
+						<span title="Post to GL" aria-label="Post to GL">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24"
+								fill="none" stroke="currentColor" stroke-width="2"
+								stroke-linecap="round" stroke-linejoin="round">
+								<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+							</svg>
+						</span>
 					</Button>
 				{/if}
 			</RowActions>
